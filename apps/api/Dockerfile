@@ -8,19 +8,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Copy workspace manifests and lock file for dependency caching
+# Workspace manifests + lock — separate layer so dep compilation is cached
+# when only source files change
 COPY Cargo.toml Cargo.lock ./
 COPY apps/api/Cargo.toml ./apps/api/Cargo.toml
-
-# Dummy source lets Cargo pre-compile all dependencies
-RUN mkdir -p apps/api/src && echo "fn main() {}" > apps/api/src/main.rs \
-    && cargo build --release -p steward \
-    && rm -rf apps/api/src
-
-# Build the real binary
-COPY apps/api/src ./apps/api/src
 COPY apps/api/migrations ./apps/api/migrations
-RUN touch apps/api/src/main.rs && cargo build --release -p steward
+COPY apps/api/src ./apps/api/src
+
+RUN cargo build --release -p steward
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM debian:bookworm-slim AS runtime
