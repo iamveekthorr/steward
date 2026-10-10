@@ -17,6 +17,9 @@ assets = { directory = ".open-next/assets" }
 # ── Custom domain ────────────────────────────────────────────────────────────
 # Add a custom domain under Workers & Pages → steward-web → Custom Domains.
 
+[vars]
+API_URL = "https://steward-api-su6f.onrender.com"
+
 # ── Runtime secrets (set via Cloudflare Pages dashboard, not here) ───────────
 # Pages → steward-web → Settings → Environment variables → Production
 # Mark RESEND_API_KEY as Encrypted.
