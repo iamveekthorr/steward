@@ -1,0 +1,40 @@
+{
+  "name": "@steward/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack --port 3001",
+    "build": "next build",
+    "build:cf": "opennextjs-cloudflare build",
+    "preview:cf": "opennextjs-cloudflare preview",
+    "deploy:cf": "opennextjs-cloudflare deploy",
+    "start": "next start",
+    "lint": "biome lint ./src",
+    "format": "biome format ./src --write",
+    "check": "biome check ./src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "next": "15.5.26",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "resend": "^6.32.0",
+    "swr": "^2.5.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "@opennextjs/cloudflare": "^1.20.10",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^2",
+    "happy-dom": "^15",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^2",
+    "wrangler": "^4.149.0"
+  }
+}

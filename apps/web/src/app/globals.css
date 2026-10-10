@@ -1,0 +1,297 @@
+@import "tailwindcss";
+
+@theme {
+  /* ─── Typography ─────────────────────────────────────────────── */
+  --font-sans: var(--font-archivo), "Archivo", system-ui, sans-serif;
+
+  /* ─── Root / auth surface (light) ───────────────────────────── */
+  --color-surface: #f3f2f2;
+  --color-surface-raised: #ffffff;
+  --color-surface-border: rgba(32, 30, 29, 0.12);
+  --color-text-primary: #201e1d;
+  --color-text-secondary: #605d5d;
+  --color-text-muted: #9b9797;
+  --color-accent: #0f6f66;
+  --color-accent-foreground: #ffffff;
+  --color-destructive: #834727;
+  --color-success: #0b564f;
+  --color-warning: #b0603a;
+  --radius: 0rem;
+
+  /* ─── Dashboard / brand tokens ───────────────────────────────── */
+  --st-bg: #f3f2f2;
+  --st-surface: #eae9e9;
+  --st-text: #201e1d;
+  --st-on-dark: #ffffff;
+  --st-divider: color-mix(in srgb, #201e1d 40%, transparent);
+  --st-hair: 1px solid color-mix(in srgb, #201e1d 40%, transparent);
+  --st-rule: 2px solid color-mix(in srgb, #201e1d 40%, transparent);
+  --st-rule-ink: 2px solid #201e1d;
+  --st-radius: 0;
+  --st-scrim: color-mix(in srgb, #2d2b2b 50%, transparent);
+
+  /* Neutral ramp */
+  --st-neutral-100: #f8f4f4;
+  --st-neutral-200: #eae7e7;
+  --st-neutral-300: #d7d3d3;
+  --st-neutral-400: #bab6b6;
+  --st-neutral-500: #9b9797;
+  --st-neutral-600: #7d7979;
+  --st-neutral-700: #605d5d;
+  --st-neutral-800: #444141;
+  --st-neutral-900: #2d2b2b;
+
+  /* Accent: Steward teal */
+  --st-accent: #0f6f66;
+  --st-accent-100: #e9f3f1;
+  --st-accent-200: #cae4e0;
+  --st-accent-300: #a1cec8;
+  --st-accent-400: #60aaa2;
+  --st-accent-500: #2a8a80;
+  --st-accent-600: #0f6f66;
+  --st-accent-700: #0b564f;
+  --st-accent-800: #0a403b;
+  --st-accent-900: #0b2d2a;
+
+  /* Alert: terracotta */
+  --st-alert: #b0603a;
+  --st-alert-100: #fbf0e9;
+  --st-alert-200: #f2dbcb;
+  --st-alert-300: #e5bd9f;
+  --st-alert-400: #d0946a;
+  --st-alert-500: #bd7546;
+  --st-alert-600: #a15c32;
+  --st-alert-700: #834727;
+  --st-alert-800: #60341d;
+  --st-alert-900: #3f2414;
+
+  /* Shadows */
+  --st-shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
+  --st-shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
+  --st-shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
+
+  /* Spacing */
+  --st-s-1: 4px;  --st-s-2: 8px;   --st-s-3: 12px; --st-s-4: 16px;
+  --st-s-5: 20px; --st-s-6: 24px;  --st-s-7: 28px; --st-s-8: 32px;
+  --st-s-10: 40px; --st-s-14: 56px; --st-s-18: 72px;
+
+  /* Motion */
+  --st-ease: cubic-bezier(.2, .75, .3, 1);
+  --st-dur-fast: 160ms;
+  --st-dur: 520ms;
+  --st-dur-slow: 620ms;
+
+  /* Layout */
+  --st-sidebar-w: 232px;
+  --st-page-x: 28px;
+  --st-screen-x: 20px;
+  --st-screen-x-auth: 24px;
+  --st-topbar-h: 44px;
+  --st-tabbar-h: 56px;
+  --st-tap: 44px;
+  --st-safe-top: env(safe-area-inset-top, 0px);
+  --st-safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* Font */
+  --st-font: var(--font-sans);
+  --st-w-regular: 400;
+  --st-w-medium: 500;
+  --st-w-semibold: 600;
+  --st-w-bold: 700;
+  --st-w-heavy: 800;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--st-bg);
+  color: var(--st-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--st-accent) 20%, transparent);
+}
+
+/* Dashboard two-column grid — sidebar collapses on mobile */
+.dashboard-grid {
+  grid-template-columns: 232px minmax(0, 1fr);
+}
+
+/* Container query anchor — page sections respond to main content width */
+.dashboard-main {
+  container-type: inline-size;
+  container-name: main;
+}
+
+/* Responsive page padding — all page-level headers and body divs */
+@container main (max-width: 599px) {
+  .ds-page-header,
+  .dashboard-main header {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  .ds-page-body {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Sidebar is hidden off-canvas via transform in steward.css; no display:none needed here */
+}
+
+/* Global focus ring */
+:focus-visible {
+  outline: 2px solid var(--st-accent);
+  outline-offset: 2px;
+}
+
+/* Dashboard (light bg) focus ring — scoped to dashboard root */
+.dashboard-layout :focus-visible {
+  outline: 2px solid var(--st-accent);
+  outline-offset: 2px;
+}
+
+/* Auth pages focus ring */
+.auth-layout :focus-visible {
+  outline: 2px solid var(--st-accent);
+  outline-offset: 2px;
+}
+
+/* Skeleton shimmer */
+@keyframes ds-shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+
+.ds-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--st-neutral-200) 25%,
+    var(--st-neutral-100) 50%,
+    var(--st-neutral-200) 75%
+  );
+  background-size: 1200px 100%;
+  animation: ds-shimmer 1.4s ease-in-out infinite;
+}
+
+/* Global interactive transition */
+button,
+a,
+[role="button"] {
+  transition: opacity 150ms ease, background-color 150ms ease, border-color 150ms ease,
+    color 150ms ease, box-shadow 150ms ease;
+}
+
+button:active:not([disabled]) {
+  opacity: 0.85;
+  transform: translateY(0.5px);
+}
+
+/* Cursor pointer on all clickable things that aren't buttons */
+a,
+[role="button"],
+label[for],
+select {
+  cursor: pointer;
+}
+
+/* Input focus style for dashboard/auth */
+.dashboard-layout input:focus,
+.dashboard-layout select:focus,
+.dashboard-layout textarea:focus,
+.auth-layout input:focus,
+.auth-layout select:focus {
+  outline: none;
+  border-color: var(--st-accent) !important;
+  box-shadow: 0 0 0 3px var(--st-accent-100);
+}
+
+/* Button hover state on light surfaces */
+.dashboard-layout button:not([disabled]):hover,
+.auth-layout button:not([disabled]):hover {
+  opacity: 0.88;
+}
+
+/* Required field asterisk — add data-required="true" to label to show * */
+label[data-required="true"]::after {
+  content: " *";
+  color: var(--st-alert-700);
+  font-weight: 800;
+}
+
+/* Toast entrance */
+@keyframes ds-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Auth page responsive layout ─────────────────────────────────────────── */
+
+/* Login: hide "Due this week" left panel on mobile, expand form */
+@media (max-width: 767px) {
+  .auth-login-grid {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .auth-login-left { display: none !important; }
+  .auth-login-right {
+    border-left: none !important;
+    padding: 48px 24px 56px !important;
+  }
+}
+
+/* Register: hide dark left panel on mobile, expand form */
+@media (max-width: 767px) {
+  .auth-register-grid {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .auth-register-left { display: none !important; }
+  .auth-register-right {
+    padding: 48px 24px 56px !important;
+    justify-content: flex-start !important;
+  }
+}
+
+/* Invite: stack panels on mobile */
+@media (max-width: 767px) {
+  .auth-invite-grid {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .auth-invite-left {
+    padding: 40px 24px !important;
+  }
+  .auth-invite-right {
+    border-left: none !important;
+    padding: 40px 24px 56px !important;
+  }
+}
+
+/* Forgot / Reset: reduce padding on mobile */
+@media (max-width: 767px) {
+  .auth-centered-page { padding: 32px 24px 56px !important; }
+  .auth-topbar { padding: 20px 24px !important; }
+  .auth-centered-form { padding: 0 !important; }
+}
