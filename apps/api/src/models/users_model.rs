@@ -16,13 +16,19 @@ pub struct UsersDto {
 }
 
 pub trait UsersRepository {
-    async fn find_all(&self) -> Result<Vec<UsersDto>, sqlx::Error>;
-    async fn find_by_id(&self, id: Uuid) -> Result<Option<UsersDto>, sqlx::Error>;
+    fn find_all(
+        &self,
+    ) -> impl std::future::Future<Output = Result<Vec<UsersDto>, sqlx::Error>> + Send;
+
+    fn find_by_id(
+        &self,
+        id: Uuid,
+    ) -> impl std::future::Future<Output = Result<Option<UsersDto>, sqlx::Error>> + Send;
 }
 
 impl UsersRepository for PostgresDbPool {
     async fn find_all(&self) -> Result<Vec<UsersDto>, sqlx::Error> {
-        sqlx::query_as::<_, UsersDto>("SELECT * FROM users")
+        sqlx::query_as::<_, UsersDto>("SELECT * FROM users ORDER BY created_at DESC")
             .fetch_all(&self.pool)
             .await
     }

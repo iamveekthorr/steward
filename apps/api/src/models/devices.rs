@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::enums::{device_status::DeviceStatus, device_type::DeviceType};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};

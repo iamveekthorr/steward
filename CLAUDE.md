@@ -119,7 +119,7 @@ src/
 ├── app.rs           # AppState and PostgresDbPool wrapper
 ├── routes.rs        # Router composition (merges all route modules)
 ├── routes/          # HTTP route handlers
-│   └── users.rs     # User endpoints (GET /api/v1/users, GET /api/v1/users/:id)
+│   └── users.rs     # User endpoints (GET /users/me, GET|PATCH /users/settings)
 ├── models.rs        # Module exports
 ├── models/          # Data models and repository traits
 │   ├── users_model.rs

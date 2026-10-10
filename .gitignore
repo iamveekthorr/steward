@@ -1,7 +1,43 @@
 /target
 
-# Ignore environment files
+# Environment files
 *.env
+.env.local
+.env*.local
 
+# OS
 .DS_Store
+Thumbs.db
+
+# Build caches and outputs
+.turbo/
+.next/
+out/
+dist/
+node_modules/
+
+# Claude Code project files
+.claude/
+
+# Design reference and mockup zips (local only)
+design-reference/
+dashboard-mockup-design-guide/
 graphify-out/
+
+# Prevent accidental npm lockfile from shadowing pnpm-lock.yaml
+package-lock.json
+
+# Archives
+zip*
+*.zip
+
+# Test/placeholder uploads in public
+apps/web/public/proof-placeholder.jpg
+
+# Cloudflare Pages build output (@opennextjs/cloudflare)
+apps/web/.open-next/
+apps/web/.worker-next/
+
+# Production env files — never commit
+.env.production
+apps/web/.env.production

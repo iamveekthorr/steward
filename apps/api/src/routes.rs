@@ -1,7 +1,19 @@
 use crate::app::AppState;
-use axum::Router;
+use axum::{Router, routing::get};
+mod admin;
+mod auth;
+mod manager;
+mod uploads;
 mod users;
+mod worker;
 
 pub fn app_router() -> Router<AppState> {
-    Router::new().merge(users::router())
+    Router::new()
+        .route("/health", get(|| async { "ok" }))
+        .merge(auth::router())
+        .merge(users::router())
+        .merge(manager::router())
+        .merge(worker::router())
+        .merge(uploads::router())
+        .merge(admin::router())
 }

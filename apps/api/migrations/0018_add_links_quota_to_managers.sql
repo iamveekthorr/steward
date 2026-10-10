@@ -1,0 +1,1 @@
+ALTER TABLE managers ADD COLUMN links_quota_approved BOOLEAN NOT NULL DEFAULT FALSE;

@@ -1,0 +1,52 @@
+services:
+  - type: web
+    name: steward-api
+    runtime: docker
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: apps/api
+    plan: starter
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: APP_PORT
+        value: 3000
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: steward-db
+          property: host
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: steward-db
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: steward-db
+          property: password
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: steward-db
+          property: database
+      - key: POSTGRES_DB_PORT
+        fromDatabase:
+          name: steward-db
+          property: port
+      - key: JWT_SECRET
+        generateValue: true
+      # Set these in the Render dashboard after creating the service:
+      - key: ALLOWED_ORIGIN
+        sync: false   # e.g. https://steward-web.victorokonkwo67.workers.dev
+      - key: S3_API_URL
+        sync: false   # Cloudflare R2 API URL
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_PUBLIC_URL
+        sync: false
+
+databases:
+  - name: steward-db
+    plan: starter
+    databaseName: steward
+    user: steward

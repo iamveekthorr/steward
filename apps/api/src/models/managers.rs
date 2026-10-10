@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::enums::manager_status::ManagerStatus;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -11,6 +12,7 @@ pub struct Managers {
     pub status: ManagerStatus,
     pub verified_by: Option<Uuid>,
     pub verified_at: Option<chrono::DateTime<Utc>>,
+    pub links_quota_approved: bool,
     pub created_at: chrono::DateTime<Utc>,
     pub updated_at: Option<chrono::DateTime<Utc>>,
 }

@@ -1,0 +1,50 @@
+name: Deploy web → Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/web/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/deploy-web.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build for Cloudflare Pages
+        run: pnpm --filter @steward/web build:cf
+        env:
+          # NEXT_PUBLIC_* vars are baked in at build time by Next.js
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          # Runtime secrets — injected by Cloudflare Pages Worker at request time,
+          # but also needed here if any build step references them.
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM: ${{ secrets.RESEND_FROM }}
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy .open-next/assets --project-name=steward-web --commit-dirty=true
+          workingDirectory: apps/web

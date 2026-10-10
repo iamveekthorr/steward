@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::enums::{payment_method::PaymentMethod, preferred_currency::PreferredCurrency};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};

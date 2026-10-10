@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod device_assignment;
 pub mod devices;
 pub mod link_manager_history;

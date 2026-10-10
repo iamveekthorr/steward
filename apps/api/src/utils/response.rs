@@ -21,3 +21,4 @@ impl<T: Serialize> IntoResponse for ApiResponse<T> {
         (self.http_status, Json(self)).into_response()
     }
 }
+

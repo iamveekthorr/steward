@@ -9,7 +9,7 @@ pub struct Payout {
     pub id: Uuid,
     pub link_id: Uuid,
     pub paid_by: Uuid,
-    pub payment_config_id: Uuid,
+    pub payment_config_id: Option<Uuid>,
     pub period_start: chrono::DateTime<Utc>,
     pub period_end: chrono::DateTime<Utc>,
     pub base_amount: i64,

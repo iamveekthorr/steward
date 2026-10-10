@@ -1,0 +1,556 @@
+{
+  "info": {
+    "name": "Steward API",
+    "description": "Complete API collection for Steward — payment management for diaspora users.\n\n**Base URL:** `http://localhost:3000/api/v1`\n\n**Auth:** Most endpoints require a Bearer token. Run `POST /auth/login` first, then set the `access_token` variable (the collection auto-sets it via a test script).\n\n**Test credentials:**\n- Manager: `manager@steward.test` / `Steward123!`\n- Worker: `worker@steward.test` / `Steward123!`",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000/api/v1", "type": "string" },
+    { "key": "access_token", "value": "", "type": "string" },
+    { "key": "refresh_token", "value": "", "type": "string" },
+    { "key": "manager_id", "value": "", "type": "string" },
+    { "key": "link_id", "value": "", "type": "string" },
+    { "key": "device_id", "value": "", "type": "string" },
+    { "key": "router_id", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Registration, login, token refresh, and logout.",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Test\",\n  \"last_name\": \"User\",\n  \"email\": \"test@example.com\",\n  \"password\": \"Steward123!\"\n}"
+            },
+            "description": "Create a new user account. Returns access_token and refresh_token on success."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.data?.access_token) {",
+                  "  pm.collectionVariables.set('access_token', b.data.access_token);",
+                  "  pm.collectionVariables.set('refresh_token', b.data.refresh_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (manager)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"manager@steward.test\",\n  \"password\": \"Steward123!\"\n}"
+            },
+            "description": "Login as the test manager. Sets access_token and refresh_token collection variables automatically."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.data?.access_token) {",
+                  "  pm.collectionVariables.set('access_token', b.data.access_token);",
+                  "  pm.collectionVariables.set('refresh_token', b.data.refresh_token);",
+                  "  console.log('Token set:', b.data.access_token.slice(0,20) + '...');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (worker)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"worker@steward.test\",\n  \"password\": \"Steward123!\"\n}"
+            },
+            "description": "Login as the test worker. Sets access_token and refresh_token collection variables automatically."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.data?.access_token) {",
+                  "  pm.collectionVariables.set('access_token', b.data.access_token);",
+                  "  pm.collectionVariables.set('refresh_token', b.data.refresh_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/refresh",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "description": "Exchange a refresh token for a new access token. Updates access_token variable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.data?.access_token) {",
+                  "  pm.collectionVariables.set('access_token', b.data.access_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/auth/logout",
+            "description": "Invalidates the current access token server-side."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "Current user profile and settings. All endpoints require auth.",
+      "item": [
+        {
+          "name": "Get current user (me)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/users/me",
+            "description": "Returns the authenticated user's profile: id, name, email, role."
+          }
+        },
+        {
+          "name": "Get all users (admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/users",
+            "description": "Returns all users. Intended for admin use."
+          }
+        },
+        {
+          "name": "Get user by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/users/:id",
+            "variable": [{ "key": "id", "value": "{{manager_id}}" }],
+            "description": "Fetch a single user by UUID."
+          }
+        },
+        {
+          "name": "Get user settings",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/users/settings",
+            "description": "Returns the user's settings: theme, email notification preferences, reminder days."
+          }
+        },
+        {
+          "name": "Update user settings",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/users/settings",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"theme\": \"dark\",\n  \"enable_email_notifications\": true,\n  \"reminder_days_before\": 3\n}"
+            },
+            "description": "Partial update of user settings. All fields are optional."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Manager — Dashboard",
+      "description": "Dashboard data endpoints. Requires manager auth. KPIs refresh every 30s; charts every 30min.",
+      "item": [
+        {
+          "name": "Dashboard KPIs",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/manager/dashboard/kpis",
+            "description": "Fast KPI tiles (4 parallel COUNT queries). Returns: active_links, total_links, pending_links, overdue_links, due_this_week, due_this_week_amounts, paid_this_month, paid_this_month_payouts, overdue_worker."
+          }
+        },
+        {
+          "name": "Dashboard Charts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/manager/dashboard/charts",
+            "description": "Heavy chart data (8 parallel queries). Returns: monthly_trend, status_breakdown, currency_totals, needs_attention, on_time_rate, total_payouts_12mo, avg_delay_days, monthly_punctuality, paid_by_link, automation."
+          }
+        },
+        {
+          "name": "Dashboard (legacy — all data)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/manager/dashboard",
+            "description": "Legacy combined endpoint — all dashboard data in one response. Use /kpis and /charts instead."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Manager — Links",
+      "description": "Manage worker links (employment relationships). Requires manager auth.",
+      "item": [
+        {
+          "name": "List links",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/manager/links",
+            "description": "Returns all links for the authenticated manager, including worker name, job type, pay schedule, status, and next due date."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.data?.[0]?.id) {",
+                  "  pm.collectionVariables.set('link_id', b.data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create link",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/manager/links",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"worker_email\": \"worker@steward.test\",\n  \"job_type\": \"House Assistant\",\n  \"start_date\": \"2025-01-01T00:00:00Z\",\n  \"home_country\": \"Nigeria\",\n  \"work_country\": \"Nigeria\",\n  \"home_city\": \"Lagos\",\n  \"work_city\": \"Abuja\"\n}"
+            },
+            "description": "Create a new employment link between this manager and an existing worker user. The worker must already have a Steward account. Free quota is 3 links; request approval via the admin endpoint to add more."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.data?.id) {",
+                  "  pm.collectionVariables.set('link_id', b.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get link detail",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/manager/links/{{link_id}}",
+            "description": "Returns full link detail including all historical payouts."
+          }
+        },
+        {
+          "name": "Get quota status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/manager/quota",
+            "description": "Returns current link count, whether quota is approved, and whether new links can be added."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Manager — Payouts",
+      "description": "Record payments to workers.",
+      "item": [
+        {
+          "name": "Record payout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/manager/payouts",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"link_id\": \"{{link_id}}\",\n  \"base_amount\": 15000000,\n  \"currency\": \"NGN\",\n  \"paid_at\": \"2025-10-07T10:00:00Z\",\n  \"notes\": \"October salary\",\n  \"proof_key\": null\n}"
+            },
+            "description": "Record a payment for a worker link. `base_amount` is in minor units (kobo for NGN — so 150,000 NGN = 15000000). `proof_key` is the R2 object key returned by `POST /uploads/presign` after uploading a proof image. Omit if no proof."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Manager — Devices",
+      "description": "Manage physical devices assigned to workers.",
+      "item": [
+        {
+          "name": "List devices",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/manager/devices",
+            "description": "Returns all devices owned by this manager, including current assignment."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.data?.[0]?.id) {",
+                  "  pm.collectionVariables.set('device_id', b.data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create device",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/manager/devices",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"MacBook Pro 14\",\n  \"device_type\": \"laptop\",\n  \"model\": \"MacBook Pro M3\",\n  \"serial_number\": \"SN-DEMO-001\"\n}"
+            },
+            "description": "Add a new device to the manager's inventory. device_type: laptop | phone | tablet | desktop | other."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Manager — Routers",
+      "description": "Manage router/gateway devices.",
+      "item": [
+        {
+          "name": "List routers",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/manager/routers",
+            "description": "Returns all routers owned by this manager."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.data?.[0]?.id) {",
+                  "  pm.collectionVariables.set('router_id', b.data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create router",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/manager/routers",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Office Router\",\n  \"router_type\": \"wifi\",\n  \"routes_to\": \"192.168.1.0/24\",\n  \"ip_addr\": \"192.168.1.1\"\n}"
+            },
+            "description": "Add a new router. router_type: wifi | vpn | ethernet | other."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Manager — Overtime",
+      "description": "Overtime policies applied to links.",
+      "item": [
+        {
+          "name": "List overtime policies",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/manager/overtime",
+            "description": "Returns all overtime policies created by this manager."
+          }
+        },
+        {
+          "name": "Create overtime policy",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/manager/overtime",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Standard 1.5x\",\n  \"overtime_enabled\": true,\n  \"multiplier\": 1.5,\n  \"flat_rate\": null,\n  \"threshold_hours\": 40\n}"
+            },
+            "description": "Create a reusable overtime policy. Either multiplier (e.g. 1.5x) or flat_rate (minor units per extra hour). threshold_hours: hours/week above which overtime kicks in."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "description": "Admin-only operations. No auth guard implemented yet — use carefully.",
+      "item": [
+        {
+          "name": "Approve manager link quota",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/admin/managers/:manager_id/approve-links",
+            "variable": [{ "key": "manager_id", "value": "{{manager_id}}" }],
+            "description": "Approves unlimited link quota for a manager. Idempotent — returns 409 if already approved."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Worker",
+      "description": "Worker-facing endpoints. Requires worker auth (login as worker@steward.test).",
+      "item": [
+        {
+          "name": "Next payment",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/worker/next-payment",
+            "description": "Returns the next scheduled payment for this worker: next_due_date, base_amount (minor units), currency, pay_schedule."
+          }
+        },
+        {
+          "name": "Payout history",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/worker/payouts",
+            "description": "Returns all payouts for this worker, newest first. Includes proof_of_payment URL if uploaded."
+          }
+        },
+        {
+          "name": "My details",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/worker/details",
+            "description": "Returns the worker's employment details: job type, start date, location, manager name, pay schedule, and bank/payment info."
+          }
+        },
+        {
+          "name": "Update bank details",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/worker/bank",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment_method\": \"bank_transfer\",\n  \"bank_name\": \"First Bank Nigeria\",\n  \"bank_account_number\": \"1234567890\",\n  \"preferred_currency\": \"NGN\"\n}"
+            },
+            "description": "Update the worker's payment details. payment_method: bank_transfer | cash | mobile_money."
+          }
+        },
+        {
+          "name": "My assets",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/worker/assets",
+            "description": "Returns devices and routers assigned to this worker."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Uploads",
+      "description": "Presigned URL for uploading proof-of-payment files to Cloudflare R2.",
+      "item": [
+        {
+          "name": "Get presigned upload URL",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/uploads/presign",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"filename\": \"receipt.jpg\",\n  \"content_type\": \"image/jpeg\"\n}"
+            },
+            "description": "Returns a presigned PUT URL for uploading directly to R2, plus the object `key` to pass back in `POST /manager/payouts` as `proof_key`. Upload the file with a PUT request to the returned URL, then use the key when recording the payout."
+          }
+        }
+      ]
+    }
+  ]
+}

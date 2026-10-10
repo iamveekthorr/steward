@@ -5,13 +5,31 @@ services:
     restart: always
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro          # mount TLS certs (certbot / Cloudflare origin cert)
     depends_on:
-      - db
+      - api
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: steward_api
+    restart: always
+    env_file: .env
+    environment:
+      # Override host so the app listens on all interfaces inside the container
+      POSTGRES_HOST: db
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
 
   db:
-    image: postgres:latest
+    image: postgres:16-alpine
     container_name: manage_me
     restart: always
     environment:
@@ -21,7 +39,12 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   cache:
     image: valkey/valkey:8-alpine
@@ -33,7 +56,6 @@ services:
       - valkey_data:/data
     command: valkey-server --save 60 1 --loglevel warning
 
-# Docker Compose enforces a strict rule: You cannot mount a named storage volume to a container unless you explicitly "register" the name at the very bottom of the file
 volumes:
   postgres_data:
     driver: local

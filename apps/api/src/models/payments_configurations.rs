@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::enums::pay_schedule::PaySchedule;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
