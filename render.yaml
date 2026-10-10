@@ -4,7 +4,7 @@ services:
     runtime: docker
     dockerfilePath: apps/api/Dockerfile
     dockerContext: apps/api
-    plan: starter
+    plan: free
     healthCheckPath: /api/v1/health
     envVars:
       - key: APP_PORT
@@ -47,6 +47,6 @@ services:
 
 databases:
   - name: steward-db
-    plan: starter
+    plan: free
     databaseName: steward
     user: steward
