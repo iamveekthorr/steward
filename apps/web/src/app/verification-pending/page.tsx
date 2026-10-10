@@ -26,7 +26,7 @@ function VerificationContent() {
       const res = await api.auth.resendVerification(email);
       const token = (res as { data?: { verification_token?: string } }).data?.verification_token;
       if (token) {
-        fetch("/api/email/verify", {
+        fetch("/api/email/verify-address", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ to: email, name: email.split("@")[0], token }),

@@ -16,3 +16,13 @@ assets = { directory = ".open-next/assets" }
 #
 # ── Custom domain ────────────────────────────────────────────────────────────
 # Add a custom domain under Workers & Pages → steward-web → Custom Domains.
+
+# ── Runtime secrets (set via Cloudflare Pages dashboard, not here) ───────────
+# Pages → steward-web → Settings → Environment variables → Production
+# Mark RESEND_API_KEY as Encrypted.
+#
+# Required vars:
+#   NEXT_PUBLIC_API_URL   — https://api.yourdomain.com/api/v1   (build-time)
+#   NEXT_PUBLIC_APP_URL   — https://steward.pages.dev           (build-time)
+#   RESEND_API_KEY        — re_xxxx...                          (runtime secret)
+#   RESEND_FROM           — noreply@yourdomain.com              (runtime)

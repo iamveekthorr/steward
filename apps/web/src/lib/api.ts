@@ -85,10 +85,24 @@ async function request<T>(path: string, init?: RequestInit, isRetry = false): Pr
     return { status: true, message: "No content", data: null } as T;
   }
 
-  const body = await res.json();
+  let body: Record<string, unknown>;
+  try {
+    body = await res.json();
+  } catch {
+    // Response is not JSON (e.g. HTML error page from a misconfigured proxy).
+    throw new Error(
+      res.ok
+        ? "Unexpected response from server"
+        : res.status === 503
+        ? "Service unavailable. Please try again later."
+        : res.status === 502
+        ? "Service unavailable. Please try again later."
+        : `Server error (${res.status})`,
+    );
+  }
 
   if (!res.ok) {
-    throw new Error(body.message ?? "Request failed");
+    throw new Error((body.message as string | undefined) ?? "Request failed");
   }
 
   return body as T;
