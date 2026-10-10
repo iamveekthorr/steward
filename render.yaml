@@ -3,7 +3,7 @@ services:
     name: steward-api
     runtime: docker
     dockerfilePath: apps/api/Dockerfile
-    dockerContext: apps/api
+    dockerContext: .
     plan: free
     healthCheckPath: /api/v1/health
     envVars:

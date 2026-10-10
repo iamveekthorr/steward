@@ -1,6 +1,2 @@
-target/
-.env
-.env.*
-*.md
-.git
-.gitignore
+# This file is superseded by the root .dockerignore when building from repo root.
+# Kept here for reference only.

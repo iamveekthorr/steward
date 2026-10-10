@@ -1,0 +1,10 @@
+target/
+apps/web/node_modules/
+apps/web/.open-next/
+apps/web/.next/
+.git/
+.env
+.env.*
+*.md
+nginx/
+docker-compose.yml
