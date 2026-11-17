@@ -21,12 +21,18 @@ mod utils;
 
 #[derive(Deserialize, Debug, Clone)]
 struct Config {
-    postgres_user: String,
-    postgres_password: String,
-    postgres_db: String,
+    // DATABASE_URL_UNPOOLED: direct (non-pooled) Neon connection — preferred for
+    // SQLx because PgPool manages its own pool and prepared statements require a
+    // direct connection (PgBouncer transaction mode does not support them).
+    // DATABASE_URL: pooled Neon URL — accepted as fallback, or for non-Neon setups.
+    database_url_unpooled: Option<String>,
+    database_url: Option<String>,
+    postgres_user: Option<String>,
+    postgres_password: Option<String>,
+    postgres_db: Option<String>,
     app_port: u32,
-    postgres_host: String,
-    postgres_db_port: u32,
+    postgres_host: Option<String>,
+    postgres_db_port: Option<u32>,
     jwt_secret: String,
     /// Comma-separated list of allowed CORS origins, e.g. `http://localhost:3001,https://app.example.com`
     #[serde(default = "default_cors_origin")]
@@ -68,14 +74,28 @@ async fn main() {
         }
     };
 
-    let db_url = format!(
-        "postgres://{}:{}@{}:{}/{}",
-        config.postgres_user,
-        config.postgres_password,
-        config.postgres_host,
-        config.postgres_db_port,
-        config.postgres_db
-    );
+    // Prefer DATABASE_URL_UNPOOLED (direct) so SQLx prepared statements work.
+    // Fall back to DATABASE_URL, then individual POSTGRES_* vars.
+    let db_url = match config.database_url_unpooled.or(config.database_url) {
+        Some(url) => url,
+        None => match (
+            config.postgres_user.as_deref(),
+            config.postgres_password.as_deref(),
+            config.postgres_host.as_deref(),
+            config.postgres_db_port,
+            config.postgres_db.as_deref(),
+        ) {
+            (Some(user), Some(password), Some(host), Some(port), Some(db)) => {
+                format!("postgres://{}:{}@{}:{}/{}", user, password, host, port, db)
+            }
+            _ => {
+                tracing::error!(
+                    "Set DATABASE_URL, or set all of: POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_HOST, POSTGRES_DB_PORT, POSTGRES_DB"
+                );
+                std::process::exit(1);
+            }
+        },
+    };
 
     let pool = match PgPool::connect(&db_url).await {
         Ok(connection_pool) => {

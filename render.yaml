@@ -9,26 +9,8 @@ services:
     envVars:
       - key: APP_PORT
         value: 3000
-      - key: POSTGRES_HOST
-        fromDatabase:
-          name: steward-db
-          property: host
-      - key: POSTGRES_USER
-        fromDatabase:
-          name: steward-db
-          property: user
-      - key: POSTGRES_PASSWORD
-        fromDatabase:
-          name: steward-db
-          property: password
-      - key: POSTGRES_DB
-        fromDatabase:
-          name: steward-db
-          property: database
-      - key: POSTGRES_DB_PORT
-        fromDatabase:
-          name: steward-db
-          property: port
+      - key: DATABASE_URL
+        sync: false   # Neon connection string: postgres://user:pass@host/db?sslmode=require
       - key: JWT_SECRET
         generateValue: true
       # Set these in the Render dashboard after creating the service:
@@ -44,9 +26,3 @@ services:
         sync: false
       - key: R2_PUBLIC_URL
         sync: false
-
-databases:
-  - name: steward-db
-    plan: free
-    databaseName: steward
-    user: steward

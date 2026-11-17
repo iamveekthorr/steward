@@ -382,7 +382,7 @@ export const api = {
       request<ApiResponse<{ verification_token: string }>>("/auth/register", { method: "POST", body: JSON.stringify(data) }),
 
     login: (data: { email: string; password: string }) =>
-      request("/auth/login", { method: "POST", body: JSON.stringify(data) }),
+      request<ApiResponse<{ access_token: string; refresh_token: string; token_type: string; expires_in: number; must_change_password: boolean }>>("/auth/login", { method: "POST", body: JSON.stringify(data) }),
 
     refresh: (refresh_token: string) =>
       request("/auth/refresh", { method: "POST", body: JSON.stringify({ refresh_token }) }),

@@ -2,19 +2,27 @@ use axum::{
     Json, Router,
     extract::{Path, State},
     http::StatusCode,
-    routing::{get, patch},
+    routing::{get, patch, post},
 };
 use chrono::{DateTime, Utc};
+use rand::{Rng, distributions::Alphanumeric};
 use serde::{Deserialize, Serialize};
 use sqlx::prelude::FromRow;
 use uuid::Uuid;
+use validator::Validate;
 
 use crate::{
     app::AppState,
-    authentication::jwt::AdminClaims,
+    authentication::{
+        jwt::AdminClaims,
+        password::hash_password,
+    },
     enums::manager_status::ManagerStatus,
     errors::{ApiError, parse_user_id},
-    models::users_model::{UsersDto, UsersRepository},
+    models::{
+        auth::AuthRepository,
+        users_model::{UsersDto, UsersRepository},
+    },
     utils::response::ApiResponse,
 };
 
@@ -43,6 +51,24 @@ pub struct LinkQuotaStatus {
 #[derive(Debug, Deserialize)]
 pub struct SetManagerStatusRequest {}
 
+#[derive(Debug, Deserialize, Validate)]
+pub struct CreateManagerAccountRequest {
+    #[validate(length(min = 1, max = 100, message = "First name must be 1–100 characters"))]
+    pub first_name: String,
+    #[validate(length(min = 1, max = 100, message = "Last name must be 1–100 characters"))]
+    pub last_name: String,
+    #[validate(email(message = "Invalid email address"), length(max = 255))]
+    pub email: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CreateManagerAccountResponse {
+    pub user_id: Uuid,
+    pub manager_id: Uuid,
+    pub email: String,
+    pub temporary_password: String,
+}
+
 // ── Router ────────────────────────────────────────────────────────────────────
 
 pub fn router() -> Router<AppState> {
@@ -50,6 +76,7 @@ pub fn router() -> Router<AppState> {
         .route("/admin/users", get(list_all_users))
         .route("/admin/users/{id}", get(get_user_by_id))
         .route("/admin/managers", get(list_all_managers))
+        .route("/admin/managers/create-account", post(create_manager_account))
         .route("/admin/managers/{id}/verify", patch(verify_manager))
         .route("/admin/managers/{id}/suspend", patch(suspend_manager))
         .route("/admin/managers/{id}/revoke", patch(revoke_manager))
@@ -214,6 +241,61 @@ async fn revoke_manager(
         status: true,
         message: String::from("Manager revoked"),
         data: None,
+    })
+}
+
+async fn create_manager_account(
+    State(state): State<AppState>,
+    AdminClaims(_claims): AdminClaims,
+    Json(body): Json<CreateManagerAccountRequest>,
+) -> Result<ApiResponse<CreateManagerAccountResponse>, ApiError> {
+    // Validate the request body manually since we're using plain Json, not ValidatedJson.
+    use validator::Validate as _;
+    body.validate()
+        .map_err(|e| ApiError::BadRequest(format!("Validation error: {e}")))?;
+
+    let temp_password: String = rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(16)
+        .map(char::from)
+        .collect();
+
+    let password_hash = hash_password(&temp_password).map_err(|e| {
+        tracing::error!("Password hashing failed: {e}");
+        ApiError::Internal("Account creation failed".to_string())
+    })?;
+
+    let user = state
+        .db
+        .create_account_with_default_password(
+            &body.first_name,
+            &body.last_name,
+            &body.email,
+            &password_hash,
+        )
+        .await
+        .map_err(|e| ApiError::Database(e, "Account creation failed"))?;
+
+    let manager_id: Uuid = sqlx::query_scalar(
+        "INSERT INTO managers (user_id) VALUES ($1) RETURNING id",
+    )
+    .bind(user.id)
+    .fetch_one(&state.db.pool)
+    .await
+    .map_err(|e| ApiError::Database(e, "Manager record creation failed"))?;
+
+    Ok(ApiResponse {
+        http_status: StatusCode::CREATED,
+        status: true,
+        message: String::from(
+            "Manager account created. Share the temporary password with the manager.",
+        ),
+        data: Some(CreateManagerAccountResponse {
+            user_id: user.id,
+            manager_id,
+            email: body.email,
+            temporary_password: temp_password,
+        }),
     })
 }
 

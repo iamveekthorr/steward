@@ -1,17 +1,45 @@
 {
   "info": {
     "name": "Steward API",
-    "description": "Complete API collection for Steward — payment management for diaspora users.\n\n**Base URL:** `http://localhost:3000/api/v1`\n\n**Auth:** Most endpoints require a Bearer token. Run `POST /auth/login` first, then set the `access_token` variable (the collection auto-sets it via a test script).\n\n**Test credentials:**\n- Manager: `manager@steward.test` / `Steward123!`\n- Worker: `worker@steward.test` / `Steward123!`",
+    "description": "Complete API collection for Steward \u2014 payment management for diaspora users.\n\n**Base URL:** `http://localhost:3000/api/v1`\n\n**Auth:** Most endpoints require a Bearer token. Run the matching Login request first \u2014 the collection auto-sets `access_token` via a test script.\n\n**Test credentials:**\n- Admin: `dikehokonkwo@icloud.com` / `Steward@Admin2026!`\n- Manager: `manager@steward.test` / `Steward123!`\n- Worker: `worker@steward.test` / `Steward123!`",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base_url", "value": "http://localhost:3000/api/v1", "type": "string" },
-    { "key": "access_token", "value": "", "type": "string" },
-    { "key": "refresh_token", "value": "", "type": "string" },
-    { "key": "manager_id", "value": "", "type": "string" },
-    { "key": "link_id", "value": "", "type": "string" },
-    { "key": "device_id", "value": "", "type": "string" },
-    { "key": "router_id", "value": "", "type": "string" }
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "manager_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "link_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "device_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "router_id",
+      "value": "",
+      "type": "string"
+    }
   ],
   "item": [
     {
@@ -22,7 +50,12 @@
           "name": "Register",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{base_url}}/auth/register",
             "body": {
               "mode": "raw",
@@ -47,10 +80,33 @@
           ]
         },
         {
+          "name": "Verify email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/auth/verify-email",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{verification_token}}\"\n}"
+            },
+            "description": "Verify email address using the token returned by Register. Required before the user can log in."
+          }
+        },
+        {
           "name": "Login (manager)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{base_url}}/auth/login",
             "body": {
               "mode": "raw",
@@ -76,10 +132,51 @@
           ]
         },
         {
+          "name": "Login (admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"dikehokonkwo@icloud.com\",\n  \"password\": \"Steward@Admin2026!\"\n}"
+            },
+            "description": "Login as the admin. Sets access_token and refresh_token. Response includes must_change_password: false for admin accounts."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.data?.access_token) {",
+                  "  pm.collectionVariables.set('access_token', b.data.access_token);",
+                  "  pm.collectionVariables.set('refresh_token', b.data.refresh_token);",
+                  "  if (b.data.must_change_password) {",
+                  "    console.warn('must_change_password=true \u2014 call PATCH /auth/change-password before other requests');",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Login (worker)",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{base_url}}/auth/login",
             "body": {
               "mode": "raw",
@@ -107,7 +204,12 @@
           "name": "Refresh token",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": "{{base_url}}/auth/refresh",
             "body": {
               "mode": "raw",
@@ -135,11 +237,39 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "url": "{{base_url}}/auth/logout",
             "description": "Invalidates the current access token server-side."
+          }
+        },
+        {
+          "name": "Change password (forced or voluntary)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/auth/change-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"TEMP_PASSWORD_HERE\",\n  \"new_password\": \"MyNewSecure#2026\"\n}"
+            },
+            "description": "Change the authenticated user's password. Required on first login for provisioned accounts (must_change_password=true). Clears the forced-change flag on success."
           }
         }
       ]
@@ -152,7 +282,12 @@
           "name": "Get current user (me)",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
             "url": "{{base_url}}/users/me",
             "description": "Returns the authenticated user's profile: id, name, email, role."
           }
@@ -161,7 +296,12 @@
           "name": "Get all users (admin)",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
             "url": "{{base_url}}/users",
             "description": "Returns all users. Intended for admin use."
           }
@@ -170,9 +310,19 @@
           "name": "Get user by ID",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
             "url": "{{base_url}}/users/:id",
-            "variable": [{ "key": "id", "value": "{{manager_id}}" }],
+            "variable": [
+              {
+                "key": "id",
+                "value": "{{manager_id}}"
+              }
+            ],
             "description": "Fetch a single user by UUID."
           }
         },
@@ -180,7 +330,12 @@
           "name": "Get user settings",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
             "url": "{{base_url}}/users/settings",
             "description": "Returns the user's settings: theme, email notification preferences, reminder days."
           }
@@ -190,8 +345,14 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "url": "{{base_url}}/users/settings",
             "body": {
@@ -204,14 +365,19 @@
       ]
     },
     {
-      "name": "Manager — Dashboard",
+      "name": "Manager \u2014 Dashboard",
       "description": "Dashboard data endpoints. Requires manager auth. KPIs refresh every 30s; charts every 30min.",
       "item": [
         {
           "name": "Dashboard KPIs",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
             "url": "{{base_url}}/manager/dashboard/kpis",
             "description": "Fast KPI tiles (4 parallel COUNT queries). Returns: active_links, total_links, pending_links, overdue_links, due_this_week, due_this_week_amounts, paid_this_month, paid_this_month_payouts, overdue_worker."
           }
@@ -220,31 +386,46 @@
           "name": "Dashboard Charts",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
             "url": "{{base_url}}/manager/dashboard/charts",
             "description": "Heavy chart data (8 parallel queries). Returns: monthly_trend, status_breakdown, currency_totals, needs_attention, on_time_rate, total_payouts_12mo, avg_delay_days, monthly_punctuality, paid_by_link, automation."
           }
         },
         {
-          "name": "Dashboard (legacy — all data)",
+          "name": "Dashboard (legacy \u2014 all data)",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
             "url": "{{base_url}}/manager/dashboard",
-            "description": "Legacy combined endpoint — all dashboard data in one response. Use /kpis and /charts instead."
+            "description": "Legacy combined endpoint \u2014 all dashboard data in one response. Use /kpis and /charts instead."
           }
         }
       ]
     },
     {
-      "name": "Manager — Links",
+      "name": "Manager \u2014 Links",
       "description": "Manage worker links (employment relationships). Requires manager auth.",
       "item": [
         {
           "name": "List links",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
             "url": "{{base_url}}/manager/links",
             "description": "Returns all links for the authenticated manager, including worker name, job type, pay schedule, status, and next due date."
           },
@@ -268,8 +449,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "url": "{{base_url}}/manager/links",
             "body": {
@@ -297,7 +484,12 @@
           "name": "Get link detail",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
             "url": "{{base_url}}/manager/links/{{link_id}}",
             "description": "Returns full link detail including all historical payouts."
           }
@@ -306,15 +498,58 @@
           "name": "Get quota status",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
             "url": "{{base_url}}/manager/quota",
             "description": "Returns current link count, whether quota is approved, and whether new links can be added."
           }
+        },
+        {
+          "name": "Create link (with default password)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/manager/links/create-with-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"worker_first_name\": \"Amara\",\n  \"worker_last_name\": \"Osei\",\n  \"worker_email\": \"amara@example.com\",\n  \"job_type\": \"domestic\",\n  \"start_date\": \"2026-01-01\",\n  \"home_country\": \"Ghana\",\n  \"work_country\": \"United Kingdom\",\n  \"home_city\": null,\n  \"work_city\": null\n}"
+            },
+            "description": "Provision a worker account with a temporary password. The link is immediately activated. Returns temporary_password \u2014 share it securely with the worker. Worker must change their password on first login (must_change_password=true)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.data?.link_id) {",
+                  "  pm.collectionVariables.set('link_id', b.data.link_id);",
+                  "  console.log('Temp password:', b.data.temporary_password);",
+                  "  console.log('Share this securely with the worker. They must change it on first login.');",
+                  "}"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
-      "name": "Manager — Payouts",
+      "name": "Manager \u2014 Payouts",
       "description": "Record payments to workers.",
       "item": [
         {
@@ -322,28 +557,39 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "url": "{{base_url}}/manager/payouts",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"link_id\": \"{{link_id}}\",\n  \"base_amount\": 15000000,\n  \"currency\": \"NGN\",\n  \"paid_at\": \"2025-10-07T10:00:00Z\",\n  \"notes\": \"October salary\",\n  \"proof_key\": null\n}"
             },
-            "description": "Record a payment for a worker link. `base_amount` is in minor units (kobo for NGN — so 150,000 NGN = 15000000). `proof_key` is the R2 object key returned by `POST /uploads/presign` after uploading a proof image. Omit if no proof."
+            "description": "Record a payment for a worker link. `base_amount` is in minor units (kobo for NGN \u2014 so 150,000 NGN = 15000000). `proof_key` is the R2 object key returned by `POST /uploads/presign` after uploading a proof image. Omit if no proof."
           }
         }
       ]
     },
     {
-      "name": "Manager — Devices",
+      "name": "Manager \u2014 Devices",
       "description": "Manage physical devices assigned to workers.",
       "item": [
         {
           "name": "List devices",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
             "url": "{{base_url}}/manager/devices",
             "description": "Returns all devices owned by this manager, including current assignment."
           },
@@ -367,8 +613,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "url": "{{base_url}}/manager/devices",
             "body": {
@@ -381,14 +633,19 @@
       ]
     },
     {
-      "name": "Manager — Routers",
+      "name": "Manager \u2014 Routers",
       "description": "Manage router/gateway devices.",
       "item": [
         {
           "name": "List routers",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
             "url": "{{base_url}}/manager/routers",
             "description": "Returns all routers owned by this manager."
           },
@@ -412,8 +669,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "url": "{{base_url}}/manager/routers",
             "body": {
@@ -426,14 +689,19 @@
       ]
     },
     {
-      "name": "Manager — Overtime",
+      "name": "Manager \u2014 Overtime",
       "description": "Overtime policies applied to links.",
       "item": [
         {
           "name": "List overtime policies",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
             "url": "{{base_url}}/manager/overtime",
             "description": "Returns all overtime policies created by this manager."
           }
@@ -443,8 +711,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "url": "{{base_url}}/manager/overtime",
             "body": {
@@ -458,16 +732,229 @@
     },
     {
       "name": "Admin",
-      "description": "Admin-only operations. No auth guard implemented yet — use carefully.",
+      "description": "Admin-only operations. Require a JWT with role='admin'. Log in with the admin account to get this token.",
       "item": [
+        {
+          "name": "Login as admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"dikehokonkwo@icloud.com\",\n  \"password\": \"Steward@Admin2026!\"\n}"
+            },
+            "description": "Convenience copy: log in as admin and auto-set the token before hitting admin endpoints."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.data?.access_token) {",
+                  "  pm.collectionVariables.set('access_token', b.data.access_token);",
+                  "  pm.collectionVariables.set('refresh_token', b.data.refresh_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create manager account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/admin/managers/create-account",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"email\": \"manager@example.com\"\n}"
+            },
+            "description": "Provision a new manager account with a temporary password. Returns the temporary_password \u2014 share it securely with the manager. The account has must_change_password=true: the manager must change their password on first login."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (b.data?.manager_id) {",
+                  "  pm.collectionVariables.set('manager_id', b.data.manager_id);",
+                  "  console.log('Temp password:', b.data.temporary_password);",
+                  "  console.log('Share this securely with the manager. They must change it on first login.');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List all managers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/admin/managers",
+            "description": "List all manager accounts with status and verification info."
+          }
+        },
+        {
+          "name": "List all users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/admin/users",
+            "description": "List all user accounts in the system."
+          }
+        },
+        {
+          "name": "Get user by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/admin/users/:user_id",
+            "variable": [
+              {
+                "key": "user_id",
+                "value": "{{manager_id}}"
+              }
+            ],
+            "description": "Fetch a single user record by UUID."
+          }
+        },
+        {
+          "name": "Verify manager",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/admin/managers/:manager_id/verify",
+            "variable": [
+              {
+                "key": "manager_id",
+                "value": "{{manager_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "description": "Move a manager from pending to verified status. Idempotent if already verified."
+          }
+        },
+        {
+          "name": "Suspend manager",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/admin/managers/:manager_id/suspend",
+            "variable": [
+              {
+                "key": "manager_id",
+                "value": "{{manager_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "description": "Suspend a pending or verified manager. Suspended managers cannot use the platform."
+          }
+        },
+        {
+          "name": "Revoke manager",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": "{{base_url}}/admin/managers/:manager_id/revoke",
+            "variable": [
+              {
+                "key": "manager_id",
+                "value": "{{manager_id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "description": "Permanently revoke a manager's access. Irreversible."
+          }
+        },
         {
           "name": "Approve manager link quota",
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
             "url": "{{base_url}}/admin/managers/:manager_id/approve-links",
-            "variable": [{ "key": "manager_id", "value": "{{manager_id}}" }],
-            "description": "Approves unlimited link quota for a manager. Idempotent — returns 409 if already approved."
+            "variable": [
+              {
+                "key": "manager_id",
+                "value": "{{manager_id}}"
+              }
+            ],
+            "description": "Approves unlimited link quota for a manager. Idempotent \u2014 returns 409 if already approved."
           }
         }
       ]
@@ -480,7 +967,12 @@
           "name": "Next payment",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
             "url": "{{base_url}}/worker/next-payment",
             "description": "Returns the next scheduled payment for this worker: next_due_date, base_amount (minor units), currency, pay_schedule."
           }
@@ -489,7 +981,12 @@
           "name": "Payout history",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
             "url": "{{base_url}}/worker/payouts",
             "description": "Returns all payouts for this worker, newest first. Includes proof_of_payment URL if uploaded."
           }
@@ -498,7 +995,12 @@
           "name": "My details",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
             "url": "{{base_url}}/worker/details",
             "description": "Returns the worker's employment details: job type, start date, location, manager name, pay schedule, and bank/payment info."
           }
@@ -508,8 +1010,14 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "url": "{{base_url}}/worker/bank",
             "body": {
@@ -523,7 +1031,12 @@
           "name": "My assets",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
             "url": "{{base_url}}/worker/assets",
             "description": "Returns devices and routers assigned to this worker."
           }
@@ -539,8 +1052,14 @@
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
             ],
             "url": "{{base_url}}/uploads/presign",
             "body": {

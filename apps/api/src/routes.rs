@@ -2,6 +2,7 @@ use crate::app::AppState;
 use axum::{Router, routing::get};
 mod admin;
 mod auth;
+mod auth_tests;
 mod manager;
 mod uploads;
 mod users;

@@ -41,3 +41,4 @@ apps/web/.worker-next/
 # Production env files — never commit
 .env.production
 apps/web/.env.production
+.neon

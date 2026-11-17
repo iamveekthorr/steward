@@ -5,12 +5,13 @@ use axum::{
     routing::{get, patch, post},
 };
 use chrono::{DateTime, Utc};
+use rand::{Rng, distributions::Alphanumeric};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
     app::{AppState, PostgresDbPool},
-    authentication::jwt::ManagerClaims,
+    authentication::{jwt::ManagerClaims, password::hash_password},
     enums::link_status::LinkStatus,
     errors::{ApiError, parse_user_id},
     models::{auth::AuthRepository, links::Links},
@@ -32,6 +33,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/manager/links", get(list_links))
         .route("/manager/links", post(create_link))
+        .route("/manager/links/create-with-password", post(create_link_with_default_password))
         .route("/manager/links/{id}", get(get_link_detail))
         .route("/manager/links/{id}/status", patch(update_link_status))
         .route("/manager/quota", get(get_quota_status))
@@ -223,6 +225,29 @@ pub struct CreateLinkRequest {
     pub work_country: String,
     pub home_city: Option<String>,
     pub work_city: Option<String>,
+}
+
+/// Creates a worker account with a system-generated default password.
+/// The worker must change their password on first login.
+#[derive(Deserialize)]
+pub struct CreateLinkWithPasswordRequest {
+    pub worker_first_name: String,
+    pub worker_last_name: String,
+    pub worker_email: String,
+    pub job_type: String,
+    pub start_date: DateTime<Utc>,
+    pub home_country: String,
+    pub work_country: String,
+    pub home_city: Option<String>,
+    pub work_city: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct CreateLinkWithPasswordResponse {
+    pub link_id: Uuid,
+    pub worker_user_id: Uuid,
+    pub worker_email: String,
+    pub temporary_password: String,
 }
 
 #[derive(Deserialize)]
@@ -1199,6 +1224,100 @@ async fn create_link(
                 last_paid_date: None,
             },
             invite_token,
+        }),
+    })
+}
+
+async fn create_link_with_default_password(
+    State(state): State<AppState>,
+    ManagerClaims(claims): ManagerClaims,
+    Json(body): Json<CreateLinkWithPasswordRequest>,
+) -> Result<ApiResponse<CreateLinkWithPasswordResponse>, ApiError> {
+    let user_id = parse_user_id(&claims.sub)?;
+    let manager_id = resolve_manager_id(&state, user_id).await?;
+
+    let (link_count, quota_approved) = state
+        .db
+        .get_links_quota_status(manager_id)
+        .await
+        .map_err(|e| ApiError::Database(e, "Failed to check link quota"))?;
+
+    if link_count >= LINK_FREE_QUOTA && !quota_approved {
+        return Err(ApiError::Forbidden(format!(
+            "Link quota of {} reached. Contact support to request an increase.",
+            LINK_FREE_QUOTA
+        )));
+    }
+
+    // Reject if the email already has an account.
+    let already_exists = state
+        .db
+        .find_identity_by_email(&body.worker_email)
+        .await
+        .map_err(|e| ApiError::Database(e, "Failed to look up worker account"))?
+        .is_some();
+
+    if already_exists {
+        return Err(ApiError::Conflict(
+            "An account with this email already exists. Use the invite flow instead.".to_string(),
+        ));
+    }
+
+    let temp_password: String = rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(16)
+        .map(char::from)
+        .collect();
+
+    let password_hash = hash_password(&temp_password).map_err(|e| {
+        tracing::error!("Password hashing failed: {e}");
+        ApiError::Internal("Account creation failed".to_string())
+    })?;
+
+    let worker_user = state
+        .db
+        .create_account_with_default_password(
+            &body.worker_first_name,
+            &body.worker_last_name,
+            &body.worker_email,
+            &password_hash,
+        )
+        .await
+        .map_err(|e| ApiError::Database(e, "Failed to create worker account"))?;
+
+    let link = state
+        .db
+        .create_link_for_manager(
+            manager_id,
+            worker_user.id,
+            &body.job_type,
+            body.start_date,
+            &body.home_country,
+            &body.work_country,
+            body.home_city.as_deref(),
+            body.work_city.as_deref(),
+        )
+        .await
+        .map_err(|e| ApiError::Database(e, "Failed to create link"))?;
+
+    // Activate the link immediately since we control the account.
+    sqlx::query("UPDATE links SET status = 'active' WHERE id = $1")
+        .bind(link.id)
+        .execute(&state.db.pool)
+        .await
+        .map_err(|e| ApiError::Database(e, "Failed to activate link"))?;
+
+    Ok(ApiResponse {
+        http_status: StatusCode::CREATED,
+        status: true,
+        message: String::from(
+            "Worker account and link created. Share the temporary password with the worker.",
+        ),
+        data: Some(CreateLinkWithPasswordResponse {
+            link_id: link.id,
+            worker_user_id: worker_user.id,
+            worker_email: body.worker_email,
+            temporary_password: temp_password,
         }),
     })
 }

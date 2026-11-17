@@ -51,7 +51,7 @@ mod tests {
     #[test]
     fn verify_wrong_password_returns_false() {
         let hash = hash_password("correct_horse").unwrap();
-        assert!(verify_password("wrong_horse", &hash).unwrap());
+        assert!(!verify_password("wrong_horse", &hash).unwrap());
     }
 
     #[test]

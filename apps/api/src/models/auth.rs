@@ -91,6 +91,7 @@ pub struct AuthResponse {
     pub refresh_token: String,
     pub token_type: String,
     pub expires_in: i64,
+    pub must_change_password: bool,
 }
 
 // --- DB row types ---
@@ -105,6 +106,7 @@ pub struct AuthIdentity {
     pub password_hash: Option<String>,
     pub email_verified: bool,
     pub email_verification_token: Option<Uuid>,
+    pub must_change_password: bool,
 }
 
 #[derive(FromRow)]
@@ -279,6 +281,30 @@ pub trait AuthRepository {
         user_id: Uuid,
         new_password_hash: &str,
     ) -> impl Future<Output = Result<bool, sqlx::Error>> + Send;
+
+    /// Creates a user + auth_identity with a pre-set default password and
+    /// `must_change_password = TRUE`. Email is considered verified (admin/manager
+    /// vouches for the address). Returns `(user, user_id)`.
+    fn create_account_with_default_password(
+        &self,
+        first_name: &str,
+        last_name: &str,
+        email: &str,
+        password_hash: &str,
+    ) -> impl Future<Output = Result<UsersDto, sqlx::Error>> + Send;
+
+    /// Clears the `must_change_password` flag after a successful password change.
+    /// Returns `true` if the flag was set and is now cleared.
+    fn clear_must_change_password(
+        &self,
+        user_id: Uuid,
+    ) -> impl Future<Output = Result<bool, sqlx::Error>> + Send;
+
+    /// Reads the `must_change_password` flag for a given user.
+    fn get_must_change_password(
+        &self,
+        user_id: Uuid,
+    ) -> impl Future<Output = Result<bool, sqlx::Error>> + Send;
 }
 
 impl AuthRepository for PostgresDbPool {
@@ -355,7 +381,7 @@ impl AuthRepository for PostgresDbPool {
     ) -> Result<Option<AuthIdentity>, sqlx::Error> {
         sqlx::query_as::<_, AuthIdentity>(
             "SELECT id, user_id, provider, provider_user_id, password_hash,
-                    email_verified, email_verification_token
+                    email_verified, email_verification_token, must_change_password
              FROM auth_identities
              WHERE provider = $1 AND provider_user_id = $2",
         )
@@ -432,6 +458,17 @@ impl AuthRepository for PostgresDbPool {
     }
 
     async fn find_user_role(&self, user_id: Uuid) -> Result<String, sqlx::Error> {
+        let is_admin: Option<bool> = sqlx::query_scalar(
+            "SELECT is_admin FROM users WHERE id = $1 LIMIT 1",
+        )
+        .bind(user_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        if is_admin == Some(true) {
+            return Ok(String::from("admin"));
+        }
+
         let is_manager: Option<bool> = sqlx::query_scalar(
             "SELECT TRUE FROM managers WHERE user_id = $1 LIMIT 1",
         )
@@ -662,7 +699,7 @@ impl AuthRepository for PostgresDbPool {
     ) -> Result<Option<AuthIdentity>, sqlx::Error> {
         sqlx::query_as::<_, AuthIdentity>(
             "SELECT id, user_id, provider, provider_user_id, password_hash,
-                    email_verified, email_verification_token
+                    email_verified, email_verification_token, must_change_password
              FROM auth_identities
              WHERE user_id = $1 AND provider = $2",
         )
@@ -690,5 +727,69 @@ impl AuthRepository for PostgresDbPool {
         .rows_affected();
 
         Ok(rows > 0)
+    }
+
+    async fn create_account_with_default_password(
+        &self,
+        first_name: &str,
+        last_name: &str,
+        email: &str,
+        password_hash: &str,
+    ) -> Result<UsersDto, sqlx::Error> {
+        let mut tx = self.pool.begin().await?;
+
+        let user = sqlx::query_as::<_, UsersDto>(
+            "INSERT INTO users (first_name, last_name, email)
+             VALUES ($1, $2, $3)
+             RETURNING id, email, first_name, last_name, created_at, updated_at",
+        )
+        .bind(first_name)
+        .bind(last_name)
+        .bind(email)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        sqlx::query(
+            "INSERT INTO auth_identities
+               (user_id, provider, provider_user_id, password_hash, email_verified, must_change_password)
+             VALUES ($1, $2, $3, $4, TRUE, TRUE)",
+        )
+        .bind(user.id)
+        .bind(EMAIL_PROVIDER)
+        .bind(email)
+        .bind(password_hash)
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+        Ok(user)
+    }
+
+    async fn clear_must_change_password(&self, user_id: Uuid) -> Result<bool, sqlx::Error> {
+        let rows = sqlx::query(
+            "UPDATE auth_identities
+             SET must_change_password = FALSE
+             WHERE user_id = $1 AND provider = $2 AND must_change_password = TRUE",
+        )
+        .bind(user_id)
+        .bind(EMAIL_PROVIDER)
+        .execute(&self.pool)
+        .await?
+        .rows_affected();
+
+        Ok(rows > 0)
+    }
+
+    async fn get_must_change_password(&self, user_id: Uuid) -> Result<bool, sqlx::Error> {
+        let val: Option<bool> = sqlx::query_scalar(
+            "SELECT must_change_password FROM auth_identities
+             WHERE user_id = $1 AND provider = $2",
+        )
+        .bind(user_id)
+        .bind(EMAIL_PROVIDER)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(val.unwrap_or(false))
     }
 }
