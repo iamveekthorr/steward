@@ -264,6 +264,7 @@ async fn login(
                 refresh_token,
                 token_type: String::from("Bearer"),
                 expires_in: ACCESS_TOKEN_EXPIRY_SECS,
+                must_change_password: identity.must_change_password,
             }),
         },
     ))
@@ -312,6 +313,12 @@ async fn refresh(
             .map_err(|_| ApiError::Internal("Cookie encoding failed".to_string()))?,
     );
 
+    let must_change = state
+        .db
+        .get_must_change_password(token_row.user_id)
+        .await
+        .unwrap_or(false);
+
     // Return the same refresh token (rotation happens only at logout / re-login).
     Ok((
         resp_headers,
@@ -324,6 +331,7 @@ async fn refresh(
                 refresh_token: String::from(rt),
                 token_type: String::from("Bearer"),
                 expires_in: ACCESS_TOKEN_EXPIRY_SECS,
+                must_change_password: must_change,
             }),
         },
     ))
@@ -479,6 +487,9 @@ async fn change_password(
         .update_password_hash(user_id, &new_hash)
         .await
         .map_err(|e| ApiError::Database(e, "Change password failed"))?;
+
+    // Clear the forced-change flag if it was set (admin/manager-provisioned accounts).
+    let _ = state.db.clear_must_change_password(user_id).await;
 
     Ok(ApiResponse {
         http_status: StatusCode::OK,

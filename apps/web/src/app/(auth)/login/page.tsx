@@ -42,11 +42,21 @@ function LoginForm() {
     setLoading(true);
     try {
       const result = await api.auth.login({ email, password });
-      const { data } = result as { data: { access_token: string; refresh_token: string } };
+      const data = result.data;
+      if (!data) throw new Error("Unexpected response from server.");
       const store = keepSignedIn ? localStorage : sessionStorage;
       store.setItem("access_token", data.access_token);
       store.setItem("refresh_token", data.refresh_token);
       setAuthCookie(data.access_token);
+
+      if (data.must_change_password) {
+        // Provisioned account — force password change before dashboard access.
+        store.setItem("must_change_password", "1");
+        router.push("/force-change-password");
+        return;
+      }
+
+      store.removeItem("must_change_password");
       // Sync auth context before navigating so the layout doesn't see user=null
       await refreshUser();
       const next = searchParams.get("next");

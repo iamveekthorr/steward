@@ -8,7 +8,7 @@ use axum_extra::{
     headers::{Authorization, authorization::Bearer},
 };
 use chrono::Utc;
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 
 use crate::app::AppState;
@@ -49,10 +49,12 @@ pub fn verify_access_token(
     token: &str,
     secret: &str,
 ) -> Result<Claims, jsonwebtoken::errors::Error> {
+    // Explicit HS256-only whitelist — rejects "none", RS256, and any other algorithm.
+    let validation = Validation::new(Algorithm::HS256);
     match decode::<Claims>(
         token,
         &DecodingKey::from_secret(secret.as_bytes()),
-        &Validation::default(),
+        &validation,
     ) {
         Ok(data) => Ok(data.claims),
         Err(e) => Err(e),

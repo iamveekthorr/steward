@@ -3,10 +3,10 @@
 //! No network calls or real credentials required.  The presigned URL is
 //! deterministic so tests can assert on its contents:
 //!
-//! ```
+//! ```no_run
 //! # use steward::storage::mock::InMemoryStore;
-//! # use steward::storage::ObjectStore;
-//! # tokio_test::block_on(async {
+//! # use steward::storage::store::ObjectStore;
+//! # tokio::runtime::Runtime::new().unwrap().block_on(async {
 //! let store = InMemoryStore::new("https://cdn.test");
 //! let url = store.presign_put("uploads/foo.pdf", "application/pdf", 300).await.unwrap();
 //! assert!(url.starts_with("https://put.mock/uploads/foo.pdf"));

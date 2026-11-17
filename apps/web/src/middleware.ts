@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PROTECTED = ["/manager", "/worker", "/settings", "/dashboard", "/change-password"];
+const PROTECTED = ["/manager", "/worker", "/settings", "/dashboard", "/change-password", "/force-change-password"];
 const AUTH_ONLY = [
   "/login",
   "/register",

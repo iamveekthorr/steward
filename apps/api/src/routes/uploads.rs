@@ -71,11 +71,13 @@ async fn presign_handler(
 
 #[cfg(test)]
 mod tests {
+    use std::net::SocketAddr;
     use std::sync::Arc;
 
     use axum::{
         Router,
         body::Body,
+        extract::connect_info::MockConnectInfo,
         http::{Request, StatusCode},
     };
     use http_body_util::BodyExt;
@@ -105,6 +107,7 @@ mod tests {
         Router::new()
             .nest("/api/v1", app_router())
             .with_state(state)
+            .layer(MockConnectInfo(SocketAddr::from(([127, 0, 0, 1], 0))))
     }
 
     async fn read_body(body: Body) -> Value {
@@ -112,9 +115,10 @@ mod tests {
         serde_json::from_slice(&bytes).unwrap()
     }
 
-    /// Helper: register a user and return an access token.
+    /// Helper: register a user, verify their email, login, and return the access token.
     async fn register_and_login(app: &Router, email: &str) -> String {
-        let resp = app
+        // 1. Register
+        let reg = app
             .clone()
             .oneshot(
                 Request::builder()
@@ -135,8 +139,48 @@ mod tests {
             .await
             .unwrap();
 
-        let body = read_body(resp.into_body()).await;
-        body["data"]["access_token"].as_str().unwrap().to_owned()
+        let reg_body = read_body(reg.into_body()).await;
+        let verification_token = reg_body["data"]["verification_token"]
+            .as_str()
+            .expect("register must return verification_token")
+            .to_string();
+
+        // 2. Verify email
+        app.clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/auth/verify-email")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(
+                        json!({ "token": verification_token }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        // 3. Login
+        let login = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/auth/login")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(
+                        json!({ "email": email, "password": "password123" }).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        let login_body = read_body(login.into_body()).await;
+        login_body["data"]["access_token"]
+            .as_str()
+            .expect("login must return access_token")
+            .to_owned()
     }
 
     #[sqlx::test(migrations = "./migrations")]

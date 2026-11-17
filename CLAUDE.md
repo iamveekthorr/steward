@@ -204,6 +204,84 @@ All models include `created_at` and optional `updated_at` timestamps using `chro
 - Not found cases return 404 with descriptive messages
 - Empty result sets may return 204 NO_CONTENT (see `get_users` handler)
 
+---
+
+## Auth Flow: Provisioned Accounts & Forced Password Change
+
+### Overview
+
+Accounts can be provisioned by an admin (for managers) or by a manager (for their workers/links). Provisioned accounts receive a temporary password out-of-band and are required to change it on first login.
+
+### How it works
+
+1. **Account provisioning** — a temporary 16-character alphanumeric password is generated, hashed, and stored. The `auth_identities.must_change_password` column is set to `TRUE`. Email is pre-verified (`email_verified = TRUE`) so the user can log in immediately.
+
+2. **Login response** — `AuthResponse` now includes `must_change_password: bool`. Clients must check this field on every login and token refresh.
+
+3. **Forced change** — when `must_change_password = true`, the client must redirect the user to the change-password page before allowing any other action. After a successful `PATCH /auth/change-password`, the flag is cleared to `false`.
+
+4. **Self-registered users** — `must_change_password` is always `false` for users who register themselves via `POST /auth/register`.
+
+### New Endpoints
+
+#### Admin: Create Manager Account (admin only)
+```
+POST /api/v1/admin/managers/create-account
+Authorization: Bearer <admin-jwt>
+
+Body: { "first_name": "...", "last_name": "...", "email": "..." }
+
+Response 201:
+{
+  "user_id": "...",
+  "manager_id": "...",
+  "email": "...",
+  "temporary_password": "..."    ← share this securely with the manager
+}
+```
+- Protected: requires `AdminClaims` (role = `admin` in JWT)
+- Creates user + manager record in a transaction
+- Sets `must_change_password = TRUE`, `email_verified = TRUE`
+
+#### Manager: Create Link with Default Password
+```
+POST /api/v1/manager/links/create-with-password
+Authorization: Bearer <manager-jwt>
+
+Body: {
+  "worker_first_name": "...", "worker_last_name": "...", "worker_email": "...",
+  "job_type": "...", "start_date": "...",
+  "home_country": "...", "work_country": "...",
+  "home_city": null, "work_city": null
+}
+
+Response 201:
+{
+  "link_id": "...",
+  "worker_user_id": "...",
+  "worker_email": "...",
+  "temporary_password": "..."    ← share this securely with the worker
+}
+```
+- Protected: requires `ManagerClaims`
+- Checks quota; rejects duplicate emails (409 Conflict)
+- Link is immediately activated
+
+### AuthResponse shape (all login/refresh responses)
+```json
+{
+  "access_token": "...",
+  "refresh_token": "...",
+  "token_type": "Bearer",
+  "expires_in": 900,
+  "must_change_password": false
+}
+```
+
+### Testing in auth_tests.rs
+
+Tests use `MockConnectInfo(SocketAddr::from(([127, 0, 0, 1], 0)))` as a layer on the test router (Axum 0.8 requirement — `ConnectInfo<SocketAddr>` extraction requires this in `oneshot` test calls). The `change-password` endpoint is a PATCH route; use `patch_json_with_bearer` helper, not `post_json_with_bearer`.
+
 ## Logging
 
 The application uses `tracing` for structured logging:
