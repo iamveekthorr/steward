@@ -6,7 +6,7 @@ use crate::{
     app::{AppState, PostgresDbPool},
     authentication::jwt::WorkerClaims,
     enums::payout_status::PayoutStatus,
-    errors::{ApiError, parse_user_id},
+    errors::ApiError,
     models::payouts::Payout,
     utils::response::ApiResponse,
 };
@@ -309,9 +309,18 @@ impl WorkerRepository for PostgresDbPool {
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 
-/// Resolves the active link for the given user.  Returns `ApiError::NotFound`
-/// when the user has no active link, so callers can propagate with `?`.
-async fn resolve_link_id(state: &AppState, user_id: Uuid) -> Result<Uuid, ApiError> {
+/// Resolves the active link ID from JWT claims (ABAC fast-path) or falls back
+/// to a DB lookup.  Returns `ApiError::NotFound` when no active link exists.
+async fn resolve_link_id(
+    state: &AppState,
+    claims: &crate::authentication::jwt::Claims,
+) -> Result<Uuid, ApiError> {
+    if let Some(eid) = &claims.entity_id {
+        if let Ok(id) = Uuid::parse_str(eid) {
+            return Ok(id);
+        }
+    }
+    let user_id = crate::errors::parse_user_id(&claims.sub)?;
     match state.db.find_link_id_for_user(user_id).await {
         Ok(Some(id)) => Ok(id),
         Ok(None) => Err(ApiError::NotFound(
@@ -321,14 +330,23 @@ async fn resolve_link_id(state: &AppState, user_id: Uuid) -> Result<Uuid, ApiErr
     }
 }
 
+fn mask_account(account: Option<String>) -> Option<String> {
+    account.map(|s| {
+        if s.len() <= 4 {
+            "*".repeat(s.len())
+        } else {
+            format!("****{}", &s[s.len() - 4..])
+        }
+    })
+}
+
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
 async fn list_payouts(
     State(state): State<AppState>,
     WorkerClaims(claims): WorkerClaims,
 ) -> Result<ApiResponse<Vec<PayoutSummary>>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let link_id = resolve_link_id(&state, user_id).await?;
+    let link_id = resolve_link_id(&state, &claims).await?;
 
     let payouts = state
         .db
@@ -367,8 +385,7 @@ async fn next_payment(
     State(state): State<AppState>,
     WorkerClaims(claims): WorkerClaims,
 ) -> Result<ApiResponse<NextPayment>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let link_id = resolve_link_id(&state, user_id).await?;
+    let link_id = resolve_link_id(&state, &claims).await?;
 
     let payment = state
         .db
@@ -389,15 +406,16 @@ async fn get_details(
     State(state): State<AppState>,
     WorkerClaims(claims): WorkerClaims,
 ) -> Result<ApiResponse<WorkerDetails>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let link_id = resolve_link_id(&state, user_id).await?;
+    let link_id = resolve_link_id(&state, &claims).await?;
 
-    let details = state
+    let mut details = state
         .db
         .find_worker_details(link_id)
         .await
         .map_err(|e| ApiError::Database(e, "Failed to retrieve worker details"))?
         .ok_or_else(|| ApiError::NotFound("Link details not found".to_string()))?;
+
+    details.bank_account_number = mask_account(details.bank_account_number);
 
     Ok(ApiResponse {
         http_status: StatusCode::OK,
@@ -412,8 +430,7 @@ async fn update_bank(
     WorkerClaims(claims): WorkerClaims,
     Json(body): Json<UpdateBankRequest>,
 ) -> Result<ApiResponse<()>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let link_id = resolve_link_id(&state, user_id).await?;
+    let link_id = resolve_link_id(&state, &claims).await?;
 
     state
         .db
@@ -433,8 +450,7 @@ async fn list_assets(
     State(state): State<AppState>,
     WorkerClaims(claims): WorkerClaims,
 ) -> Result<ApiResponse<WorkerAssets>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let link_id = resolve_link_id(&state, user_id).await?;
+    let link_id = resolve_link_id(&state, &claims).await?;
 
     let assets = state
         .db

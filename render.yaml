@@ -9,8 +9,14 @@ services:
     envVars:
       - key: APP_PORT
         value: 3000
+      # DATABASE_URL_UNPOOLED: direct Neon connection (no PgBouncer). SQLx uses
+      # this because it manages its own pool and needs prepared-statement support.
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
+      # DATABASE_URL: pooled (PgBouncer) — set it too for tooling/introspection,
+      # but the Rust app will not use it when UNPOOLED is present.
       - key: DATABASE_URL
-        sync: false   # Neon connection string: postgres://user:pass@host/db?sslmode=require
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       # Set these in the Render dashboard after creating the service:

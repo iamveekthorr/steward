@@ -18,19 +18,22 @@ pub const ACCESS_TOKEN_EXPIRY_SECS: i64 = 900; // 15 minutes
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    pub sub: String,  // user UUID
-    pub role: String, // "user" | "manager" | "link"
+    pub sub: String,                 // user UUID
+    pub role: String,                // "user" | "manager" | "link" | "admin"
     pub exp: i64,
     pub iat: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entity_id: Option<String>,   // manager_id or link_id (ABAC fast-path)
 }
 
-pub fn make_claims(user_id: &str, role: &str) -> Claims {
+pub fn make_claims(user_id: &str, role: &str, entity_id: Option<uuid::Uuid>) -> Claims {
     let now = Utc::now().timestamp();
     Claims {
         sub: user_id.to_string(),
         role: role.to_string(),
         iat: now,
         exp: now + ACCESS_TOKEN_EXPIRY_SECS,
+        entity_id: entity_id.map(|id| id.to_string()),
     }
 }
 
@@ -59,6 +62,22 @@ pub fn verify_access_token(
         Ok(data) => Ok(data.claims),
         Err(e) => Err(e),
     }
+}
+
+/// Decode claims without enforcing expiry — used by the subscription guard
+/// middleware which runs before the handler's own full validation.
+pub fn decode_claims(
+    token: &str,
+    secret: &str,
+) -> Result<Claims, jsonwebtoken::errors::Error> {
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.validate_exp = false;
+    decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &validation,
+    )
+    .map(|d| d.claims)
 }
 
 // Axum extractor — any handler that takes AuthClaims requires a valid JWT.
@@ -187,7 +206,7 @@ mod tests {
 
     #[test]
     fn sign_then_verify_roundtrip() {
-        let claims = make_claims("user-123", "user");
+        let claims = make_claims("user-123", "user", None);
         let token = sign_access_token(&claims, SECRET).unwrap();
         let decoded = verify_access_token(&token, SECRET).unwrap();
         assert_eq!(decoded.sub, "user-123");
@@ -196,14 +215,14 @@ mod tests {
 
     #[test]
     fn verify_wrong_secret_fails() {
-        let claims = make_claims("user-123", "user");
+        let claims = make_claims("user-123", "user", None);
         let token = sign_access_token(&claims, SECRET).unwrap();
         assert!(verify_access_token(&token, "different-secret").is_err());
     }
 
     #[test]
     fn claims_exp_is_15_minutes_from_iat() {
-        let claims = make_claims("user-123", "user");
+        let claims = make_claims("user-123", "user", None);
         assert_eq!(claims.exp - claims.iat, ACCESS_TOKEN_EXPIRY_SECS);
     }
 

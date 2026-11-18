@@ -28,15 +28,18 @@ mod tests {
     // ── App builder ───────────────────────────────────────────────────────────
 
     fn build_app(pool: PgPool) -> Router {
+        let (ws_tx, _) = tokio::sync::broadcast::channel(16);
         let state = AppState {
             db: PostgresDbPool::new(pool),
             jwt_secret: "test-secret".to_string(),
             storage: Arc::new(InMemoryStore::new("https://cdn.test")),
             auth_rate_limiter: Arc::new(RateLimiter::new(1000, Duration::from_secs(900))),
             dummy_hash: Arc::new(password::hash_password("__dummy__").expect("dummy hash")),
+            ws_tx,
+            lemfi_payment_details: Arc::new(String::new()),
         };
         Router::new()
-            .nest("/api/v1", app_router())
+            .nest("/api/v1", app_router(state.clone()))
             .with_state(state)
             .layer(MockConnectInfo(SocketAddr::from(([127, 0, 0, 1], 0))))
     }
@@ -402,7 +405,7 @@ mod tests {
         use crate::authentication::jwt::{make_claims, sign_access_token};
 
         // Mint an admin JWT directly (no DB row needed for the token check itself).
-        let claims = make_claims("00000000-0000-0000-0000-000000000001", "admin");
+        let claims = make_claims("00000000-0000-0000-0000-000000000001", "admin", None);
         let token = sign_access_token(&claims, "test-secret").unwrap();
 
         let app = build_app(pool);
@@ -456,7 +459,7 @@ mod tests {
             .await
             .unwrap();
 
-        let claims = make_claims(&manager_user_id.to_string(), "manager");
+        let claims = make_claims(&manager_user_id.to_string(), "manager", None);
         let token = sign_access_token(&claims, "test-secret").unwrap();
 
         let app = build_app(pool.clone());
@@ -531,7 +534,7 @@ mod tests {
             .await
             .unwrap();
 
-        let claims = make_claims(&manager_user_id.to_string(), "manager");
+        let claims = make_claims(&manager_user_id.to_string(), "manager", None);
         let token = sign_access_token(&claims, "test-secret").unwrap();
 
         let app = build_app(pool);

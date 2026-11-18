@@ -1,9 +1,4 @@
-pub mod device_status;
-pub mod device_type;
 pub mod link_status;
 pub mod manager_status;
-pub mod pay_schedule;
-pub mod payment_method;
 pub mod payout_status;
-pub mod preferred_currency;
-pub mod router_type;
+pub mod subscription_status;

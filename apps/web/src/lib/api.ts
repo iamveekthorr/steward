@@ -81,6 +81,14 @@ async function request<T>(path: string, init?: RequestInit, isRetry = false): Pr
     }
   }
 
+  // Subscription gate: manager routes return 402 when subscription is inactive.
+  // Redirect to the payment page so they can see the LemFi details and submit
+  // their transaction reference — but only on client-side navigations.
+  if (res.status === 402 && typeof window !== "undefined") {
+    window.location.href = "/subscription-required";
+    throw new Error("Subscription required");
+  }
+
   if (res.status === 204) {
     return { status: true, message: "No content", data: null } as T;
   }
@@ -112,6 +120,78 @@ export interface ApiResponse<T> {
   status: boolean;
   message: string;
   data: T | null;
+}
+
+export interface AdminStats {
+  total_users: number;
+  total_managers: number;
+  pending_managers: number;
+  verified_managers: number;
+  total_links: number;
+  active_links: number;
+  total_payouts: number;
+  total_payout_amount: number;
+}
+
+export interface AdminManagerDto {
+  id: string;
+  user_id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  status: string;
+  links_quota_approved: boolean;
+  verified_at: string | null;
+  created_at: string;
+}
+
+export interface AdminLinkDto {
+  id: string;
+  manager_name: string;
+  manager_id: string;
+  worker_name: string;
+  worker_id: string;
+  job_type: string;
+  status: string;
+  work_country: string;
+  created_at: string;
+}
+
+export interface CreateManagerAccountRequest {
+  first_name: string;
+  last_name: string;
+  email: string;
+}
+
+export interface CreateManagerAccountResponse {
+  user_id: string;
+  manager_id: string;
+  email: string;
+  temporary_password: string;
+}
+
+export interface LinkQuotaStatus {
+  link_count: number;
+  quota_approved: boolean;
+  can_add_links: boolean;
+}
+
+export interface SubscriptionDto {
+  id: string;
+  manager_id: string;
+  status: 'pending_payment' | 'active' | 'grace' | 'expired' | 'suspended';
+  started_at: string | null;
+  expires_at: string | null;
+  grace_until: string | null;
+  payment_ref: string | null;
+  amount_cents: number | null;
+  currency: string;
+  created_at: string;
+}
+
+export interface PaymentInstructions {
+  details: string;
+  note: string;
 }
 
 export interface UserDto {
@@ -554,6 +634,42 @@ export const api = {
       request<ApiResponse<null>>("/users/settings", {
         method: "PATCH",
         body: JSON.stringify(body),
+      }),
+  },
+
+  admin: {
+    stats: () => request<ApiResponse<AdminStats>>("/admin/stats"),
+    users: () => request<ApiResponse<UserDto[]>>("/admin/users"),
+    managers: () => request<ApiResponse<AdminManagerDto[]>>("/admin/managers"),
+    createManagerAccount: (body: CreateManagerAccountRequest) =>
+      request<ApiResponse<CreateManagerAccountResponse>>("/admin/managers/create-account", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    verifyManager: (id: string) =>
+      request<ApiResponse<null>>(`/admin/managers/${id}/verify`, { method: "PATCH", body: "{}" }),
+    suspendManager: (id: string) =>
+      request<ApiResponse<null>>(`/admin/managers/${id}/suspend`, { method: "PATCH", body: "{}" }),
+    revokeManager: (id: string) =>
+      request<ApiResponse<null>>(`/admin/managers/${id}/revoke`, { method: "PATCH", body: "{}" }),
+    approveLinksQuota: (id: string) =>
+      request<ApiResponse<LinkQuotaStatus>>(`/admin/managers/${id}/approve-links`, { method: "PATCH" }),
+    links: () => request<ApiResponse<AdminLinkDto[]>>("/admin/links"),
+    subscriptions: () => request<ApiResponse<SubscriptionDto[]>>("/admin/subscriptions"),
+    activateSubscription: (managerId: string, body: { payment_ref?: string; months?: number }) =>
+      request<ApiResponse<SubscriptionDto>>(`/admin/managers/${managerId}/activate-subscription`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+  },
+
+  subscription: {
+    paymentInstructions: () =>
+      request<ApiResponse<PaymentInstructions>>("/subscription/payment-instructions"),
+    submitPaymentRef: (paymentRef: string) =>
+      request<ApiResponse<null>>("/subscription/submit-payment-ref", {
+        method: "POST",
+        body: JSON.stringify({ payment_ref: paymentRef }),
       }),
   },
 };

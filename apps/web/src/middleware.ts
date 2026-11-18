@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PROTECTED = ["/manager", "/worker", "/settings", "/dashboard", "/change-password", "/force-change-password"];
+const PROTECTED = ["/manager", "/worker", "/settings", "/dashboard", "/change-password", "/force-change-password", "/admin"];
 const AUTH_ONLY = [
   "/login",
   "/register",
@@ -39,9 +39,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Role-based cross-route protection: a link (worker) must not reach /manager and vice versa
+  // Role-based cross-route protection
   if (isProtected && validToken && token) {
     const { role } = decodeToken(token);
+    if (pathname.startsWith("/admin") && role !== "admin") {
+      const home = role === "link" ? "/worker" : "/manager";
+      return NextResponse.redirect(new URL(home, request.url));
+    }
     if (role === "link" && pathname.startsWith("/manager")) {
       return NextResponse.redirect(new URL("/worker", request.url));
     }

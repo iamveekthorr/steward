@@ -110,13 +110,9 @@ pub struct AuthIdentity {
 }
 
 #[derive(FromRow)]
-#[allow(dead_code)]
 pub struct RefreshTokenRow {
-    pub id: Uuid,
     pub user_id: Uuid,
     pub token_hash: String,
-    pub expires_at: DateTime<Utc>,
-    pub revoked_at: Option<DateTime<Utc>>,
 }
 
 pub const EMAIL_PROVIDER: &str = "email";
@@ -214,7 +210,12 @@ pub trait AuthRepository {
     fn find_user_role(
         &self,
         user_id: Uuid,
-    ) -> impl Future<Output = Result<String, sqlx::Error>> + Send;
+    ) -> impl Future<Output = Result<(String, Option<Uuid>), sqlx::Error>> + Send;
+
+    fn revoke_refresh_token_by_hash(
+        &self,
+        token_hash: &str,
+    ) -> impl Future<Output = Result<(), sqlx::Error>> + Send;
 
     /// Creates a password-reset token for the given email address.
     /// Returns `(first_name, reset_token)` if the email exists and has a verified email identity,
@@ -431,7 +432,7 @@ impl AuthRepository for PostgresDbPool {
         token: &str,
     ) -> Result<Option<RefreshTokenRow>, sqlx::Error> {
         sqlx::query_as::<_, RefreshTokenRow>(
-            "SELECT id, user_id, token_hash, expires_at, revoked_at
+            "SELECT user_id, token_hash
              FROM refresh_tokens
              WHERE token_hash = $1
                AND revoked_at IS NULL
@@ -457,41 +458,50 @@ impl AuthRepository for PostgresDbPool {
         }
     }
 
-    async fn find_user_role(&self, user_id: Uuid) -> Result<String, sqlx::Error> {
-        let is_admin: Option<bool> = sqlx::query_scalar(
-            "SELECT is_admin FROM users WHERE id = $1 LIMIT 1",
-        )
-        .bind(user_id)
-        .fetch_optional(&self.pool)
-        .await?;
+    async fn find_user_role(&self, user_id: Uuid) -> Result<(String, Option<Uuid>), sqlx::Error> {
+        let is_admin: Option<bool> =
+            sqlx::query_scalar("SELECT is_admin FROM users WHERE id = $1 LIMIT 1")
+                .bind(user_id)
+                .fetch_optional(&self.pool)
+                .await?;
 
         if is_admin == Some(true) {
-            return Ok(String::from("admin"));
+            return Ok((String::from("admin"), None));
         }
 
-        let is_manager: Option<bool> = sqlx::query_scalar(
-            "SELECT TRUE FROM managers WHERE user_id = $1 LIMIT 1",
+        let manager_id: Option<Uuid> =
+            sqlx::query_scalar("SELECT id FROM managers WHERE user_id = $1 LIMIT 1")
+                .bind(user_id)
+                .fetch_optional(&self.pool)
+                .await?;
+
+        if let Some(id) = manager_id {
+            return Ok((String::from("manager"), Some(id)));
+        }
+
+        let link_id: Option<Uuid> = sqlx::query_scalar(
+            "SELECT id FROM links WHERE user_id = $1 AND status != 'terminated' LIMIT 1",
         )
         .bind(user_id)
         .fetch_optional(&self.pool)
         .await?;
 
-        if is_manager.is_some() {
-            return Ok(String::from("manager"));
+        if let Some(id) = link_id {
+            return Ok((String::from("link"), Some(id)));
         }
 
-        let is_link: Option<bool> = sqlx::query_scalar(
-            "SELECT TRUE FROM links WHERE user_id = $1 AND status != 'terminated' LIMIT 1",
+        Ok((String::from("user"), None))
+    }
+
+    async fn revoke_refresh_token_by_hash(&self, token_hash: &str) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "UPDATE refresh_tokens SET revoked_at = NOW()
+             WHERE token_hash = $1 AND revoked_at IS NULL",
         )
-        .bind(user_id)
-        .fetch_optional(&self.pool)
+        .bind(token_hash)
+        .execute(&self.pool)
         .await?;
-
-        if is_link.is_some() {
-            return Ok(String::from("link"));
-        }
-
-        Ok(String::from("user"))
+        Ok(())
     }
 
     async fn create_password_reset_token(
@@ -569,20 +579,14 @@ impl AuthRepository for PostgresDbPool {
         Ok(row.map(|(first_name,)| (first_name, token)))
     }
 
-    async fn find_user_id_by_email(
-        &self,
-        email: &str,
-    ) -> Result<Option<Uuid>, sqlx::Error> {
+    async fn find_user_id_by_email(&self, email: &str) -> Result<Option<Uuid>, sqlx::Error> {
         sqlx::query_scalar::<_, Uuid>("SELECT id FROM users WHERE email = $1")
             .bind(email)
             .fetch_optional(&self.pool)
             .await
     }
 
-    async fn create_worker_invite(
-        &self,
-        worker_email: &str,
-    ) -> Result<(Uuid, Uuid), sqlx::Error> {
+    async fn create_worker_invite(&self, worker_email: &str) -> Result<(Uuid, Uuid), sqlx::Error> {
         let mut tx = self.pool.begin().await?;
 
         let user_id: Uuid = sqlx::query_scalar(
@@ -614,13 +618,17 @@ impl AuthRepository for PostgresDbPool {
         Ok((user_id, invite_token))
     }
 
-    async fn get_invite_info(
-        &self,
-        token: Uuid,
-    ) -> Result<Option<InviteInfo>, sqlx::Error> {
-        let row: Option<(String, String, String, DateTime<Utc>, Option<i64>, Option<String>, Option<String>)> =
-            sqlx::query_as(
-                "SELECT
+    async fn get_invite_info(&self, token: Uuid) -> Result<Option<InviteInfo>, sqlx::Error> {
+        let row: Option<(
+            String,
+            String,
+            String,
+            DateTime<Utc>,
+            Option<i64>,
+            Option<String>,
+            Option<String>,
+        )> = sqlx::query_as(
+            "SELECT
                    CONCAT(mu.first_name, ' ', mu.last_name) AS manager_name,
                    ai.provider_user_id AS worker_email,
                    l.job_type,
@@ -636,13 +644,13 @@ impl AuthRepository for PostgresDbPool {
                    ON pc.link_id = l.id AND pc.valid_until IS NULL
                  WHERE ai.invite_token = $1
                    AND ai.invite_token_expires_at > NOW()",
-            )
-            .bind(token)
-            .fetch_optional(&self.pool)
-            .await?;
+        )
+        .bind(token)
+        .fetch_optional(&self.pool)
+        .await?;
 
-        Ok(row.map(|(manager_name, worker_email, job_type, start_date, base_amount, currency, pay_schedule)| {
-            InviteInfo {
+        Ok(row.map(
+            |(
                 manager_name,
                 worker_email,
                 job_type,
@@ -650,8 +658,18 @@ impl AuthRepository for PostgresDbPool {
                 base_amount,
                 currency,
                 pay_schedule,
-            }
-        }))
+            )| {
+                InviteInfo {
+                    manager_name,
+                    worker_email,
+                    job_type,
+                    start_date,
+                    base_amount,
+                    currency,
+                    pay_schedule,
+                }
+            },
+        ))
     }
 
     async fn accept_invite(

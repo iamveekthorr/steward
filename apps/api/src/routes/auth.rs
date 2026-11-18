@@ -217,7 +217,7 @@ async fn login(
         ));
     }
 
-    let role = state
+    let (role, entity_id) = state
         .db
         .find_user_role(identity.user_id)
         .await
@@ -226,7 +226,7 @@ async fn login(
             ApiError::Internal("Login failed".to_string())
         })?;
 
-    let claims = make_claims(&identity.user_id.to_string(), &role);
+    let claims = make_claims(&identity.user_id.to_string(), &role, entity_id);
     let access_token = sign_access_token(&claims, &state.jwt_secret).map_err(|e| {
         tracing::error!("JWT signing failed: {e}");
         ApiError::Internal("Login failed".to_string())
@@ -290,7 +290,7 @@ async fn refresh(
         .map_err(|e| ApiError::Database(e, "Token refresh failed"))?
         .ok_or_else(|| ApiError::Unauthorized("Invalid or expired refresh token".to_string()))?;
 
-    let role = state
+    let (role, entity_id) = state
         .db
         .find_user_role(token_row.user_id)
         .await
@@ -299,17 +299,35 @@ async fn refresh(
             ApiError::Internal("Token refresh failed".to_string())
         })?;
 
-    let claims = make_claims(&token_row.user_id.to_string(), &role);
+    let claims = make_claims(&token_row.user_id.to_string(), &role, entity_id);
     let access_token = sign_access_token(&claims, &state.jwt_secret).map_err(|e| {
         tracing::error!("JWT signing failed: {e}");
         ApiError::Internal("Token refresh failed".to_string())
     })?;
+
+    // Rotate: revoke the old token and issue a fresh one.
+    state
+        .db
+        .revoke_refresh_token_by_hash(&token_row.token_hash)
+        .await
+        .map_err(|e| ApiError::Database(e, "Token rotation failed"))?;
+    let new_refresh_token = Uuid::new_v4().to_string();
+    state
+        .db
+        .store_refresh_token(token_row.user_id, &new_refresh_token, refresh_token_expiry())
+        .await
+        .map_err(|e| ApiError::Database(e, "Token rotation failed"))?;
 
     let secure = !is_local(Some(addr));
     let mut resp_headers = HeaderMap::new();
     resp_headers.insert(
         axum::http::header::SET_COOKIE,
         HeaderValue::from_str(&access_cookie(&access_token, secure))
+            .map_err(|_| ApiError::Internal("Cookie encoding failed".to_string()))?,
+    );
+    resp_headers.append(
+        axum::http::header::SET_COOKIE,
+        HeaderValue::from_str(&refresh_cookie(&new_refresh_token, secure))
             .map_err(|_| ApiError::Internal("Cookie encoding failed".to_string()))?,
     );
 
@@ -319,7 +337,6 @@ async fn refresh(
         .await
         .unwrap_or(false);
 
-    // Return the same refresh token (rotation happens only at logout / re-login).
     Ok((
         resp_headers,
         ApiResponse {
@@ -328,7 +345,7 @@ async fn refresh(
             message: String::from("Token refreshed"),
             data: Some(AuthResponse {
                 access_token,
-                refresh_token: String::from(rt),
+                refresh_token: new_refresh_token,
                 token_type: String::from("Bearer"),
                 expires_in: ACCESS_TOKEN_EXPIRY_SECS,
                 must_change_password: must_change,
@@ -583,12 +600,12 @@ async fn accept_invite(
         .map_err(|e| ApiError::Database(e, "Accept invite failed"))?
         .ok_or_else(|| ApiError::BadRequest("Invite not found or has expired".to_string()))?;
 
-    let role = state.db.find_user_role(user_id).await.map_err(|e| {
+    let (role, entity_id) = state.db.find_user_role(user_id).await.map_err(|e| {
         tracing::error!("DB error resolving role after invite accept: {e}");
         ApiError::Internal("Accept invite failed".to_string())
     })?;
 
-    let claims = make_claims(&user_id.to_string(), &role);
+    let claims = make_claims(&user_id.to_string(), &role, entity_id);
     let access_token = sign_access_token(&claims, &state.jwt_secret).map_err(|e| {
         tracing::error!("JWT signing failed: {e}");
         ApiError::Internal("Accept invite failed".to_string())
