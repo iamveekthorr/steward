@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 argon2 = "0.5"
 rand = "0.8"
-axum = "0.8.9"
+axum = { version = "0.8.9", features = ["ws"] }
 axum-extra = { version = "0.10", features = ["typed-header", "cookie"] }
 chrono = { version = "0.4.45", features = ["serde"] }
 dotenvy = "0.15.7"
@@ -27,6 +27,7 @@ aws-sdk-s3 = { version = "1", features = ["behavior-version-latest"] }
 aws-credential-types = { version = "1", features = ["hardcoded-credentials"] }
 async-trait = "0.1"
 validator = { version = "0.19", features = ["derive"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 
 [dev-dependencies]
 sqlx-cli = "0.9.0"

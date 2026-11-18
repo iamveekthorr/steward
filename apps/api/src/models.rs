@@ -1,14 +1,4 @@
 pub mod auth;
-pub mod device_assignment;
-pub mod devices;
-pub mod link_manager_history;
-pub mod link_payment_details;
 pub mod links;
-pub mod managers;
-pub mod overtime_policy;
-pub mod payments_configurations;
 pub mod payouts;
-pub mod router_assignment;
-pub mod router_gateways;
-pub mod settings;
 pub mod users_model;

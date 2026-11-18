@@ -13,7 +13,7 @@ use crate::{
     app::{AppState, PostgresDbPool},
     authentication::{jwt::ManagerClaims, password::hash_password},
     enums::link_status::LinkStatus,
-    errors::{ApiError, parse_user_id},
+    errors::ApiError,
     models::{auth::AuthRepository, links::Links},
     routes::auth::LINK_FREE_QUOTA,
     utils::response::ApiResponse,
@@ -1054,12 +1054,18 @@ impl ManagerRepository for PostgresDbPool {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/// Resolves the manager ID for the given user.  Returns `ApiError::Forbidden`
-/// when the user has no manager record, so callers can propagate with `?`.
+/// Resolves the manager ID from the JWT claims (ABAC fast-path) or falls back
+/// to a DB lookup.  Returns `ApiError::Forbidden` when no manager record exists.
 async fn resolve_manager_id(
     state: &AppState,
-    user_id: Uuid,
+    claims: &crate::authentication::jwt::Claims,
 ) -> Result<Uuid, ApiError> {
+    if let Some(eid) = &claims.entity_id {
+        if let Ok(id) = Uuid::parse_str(eid) {
+            return Ok(id);
+        }
+    }
+    let user_id = crate::errors::parse_user_id(&claims.sub)?;
     match state.db.find_manager_id_for_user(user_id).await {
         Ok(Some(id)) => Ok(id),
         Ok(None) => Err(ApiError::Forbidden("Manager account not found".to_string())),
@@ -1073,8 +1079,7 @@ async fn list_links(
     State(state): State<AppState>,
     ManagerClaims(claims): ManagerClaims,
 ) -> Result<ApiResponse<Vec<LinkSummary>>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     let rows = sqlx::query_as::<_, (
         Uuid,
@@ -1138,8 +1143,7 @@ async fn create_link(
     ManagerClaims(claims): ManagerClaims,
     Json(body): Json<CreateLinkRequest>,
 ) -> Result<ApiResponse<CreateLinkResponse>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     let (link_count, quota_approved) = state
         .db
@@ -1233,8 +1237,7 @@ async fn create_link_with_default_password(
     ManagerClaims(claims): ManagerClaims,
     Json(body): Json<CreateLinkWithPasswordRequest>,
 ) -> Result<ApiResponse<CreateLinkWithPasswordResponse>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     let (link_count, quota_approved) = state
         .db
@@ -1326,8 +1329,7 @@ async fn dashboard_summary(
     State(state): State<AppState>,
     ManagerClaims(claims): ManagerClaims,
 ) -> Result<ApiResponse<DashboardSummary>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     let summary = state
         .db
@@ -1347,8 +1349,7 @@ async fn dashboard_kpis(
     State(state): State<AppState>,
     ManagerClaims(claims): ManagerClaims,
 ) -> Result<ApiResponse<DashboardKpisResponse>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     let kpis = state
         .db
@@ -1368,8 +1369,7 @@ async fn dashboard_charts(
     State(state): State<AppState>,
     ManagerClaims(claims): ManagerClaims,
 ) -> Result<ApiResponse<DashboardChartsResponse>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     let charts = state
         .db
@@ -1389,8 +1389,7 @@ async fn get_quota_status(
     State(state): State<AppState>,
     ManagerClaims(claims): ManagerClaims,
 ) -> Result<ApiResponse<LinkQuotaStatus>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     let (link_count, quota_approved) = state
         .db
@@ -1415,8 +1414,7 @@ async fn record_payout_handler(
     ManagerClaims(claims): ManagerClaims,
     Json(body): Json<RecordPayoutRequest>,
 ) -> Result<ApiResponse<CreatedPayout>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     // Verify the link belongs to the requesting manager.
     let link_owned = sqlx::query_scalar::<_, bool>(
@@ -1871,8 +1869,7 @@ async fn list_devices_handler(
     State(state): State<AppState>,
     ManagerClaims(claims): ManagerClaims,
 ) -> Result<ApiResponse<Vec<DeviceSummary>>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     let devices = state
         .db
@@ -1893,8 +1890,7 @@ async fn create_device_handler(
     ManagerClaims(claims): ManagerClaims,
     Json(body): Json<CreateDeviceRequest>,
 ) -> Result<ApiResponse<Uuid>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     let id = state
         .db
@@ -1914,8 +1910,7 @@ async fn list_routers_handler(
     State(state): State<AppState>,
     ManagerClaims(claims): ManagerClaims,
 ) -> Result<ApiResponse<Vec<RouterSummary>>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     let routers = state
         .db
@@ -1936,8 +1931,7 @@ async fn create_router_handler(
     ManagerClaims(claims): ManagerClaims,
     Json(body): Json<CreateRouterRequest>,
 ) -> Result<ApiResponse<Uuid>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     let id = state
         .db
@@ -1958,8 +1952,7 @@ async fn get_router_handler(
     ManagerClaims(claims): ManagerClaims,
     Path(router_id): Path<Uuid>,
 ) -> Result<ApiResponse<RouterDetail>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     let router = state
         .db
@@ -1982,8 +1975,7 @@ async fn update_router_handler(
     Path(router_id): Path<Uuid>,
     Json(body): Json<UpdateRouterRequest>,
 ) -> Result<ApiResponse<()>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     let updated = state
         .db
@@ -2009,8 +2001,7 @@ async fn assign_router_handler(
     Path(router_id): Path<Uuid>,
     Json(body): Json<AssignRouterRequest>,
 ) -> Result<ApiResponse<()>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     let ok = state
         .db
@@ -2038,8 +2029,7 @@ async fn list_overtime_handler(
     State(state): State<AppState>,
     ManagerClaims(claims): ManagerClaims,
 ) -> Result<ApiResponse<Vec<OvertimePolicySummary>>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     let policies = state
         .db
@@ -2060,8 +2050,7 @@ async fn create_overtime_handler(
     ManagerClaims(claims): ManagerClaims,
     Json(body): Json<CreateOvertimeRequest>,
 ) -> Result<ApiResponse<Uuid>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     let id = state
         .db
@@ -2082,8 +2071,7 @@ async fn get_link_detail(
     ManagerClaims(claims): ManagerClaims,
     Path(link_id): Path<Uuid>,
 ) -> Result<ApiResponse<LinkDetail>, ApiError> {
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     let row = sqlx::query_as::<_, (
         Uuid,
@@ -2235,8 +2223,7 @@ async fn update_link_status(
         )));
     }
 
-    let user_id = parse_user_id(&claims.sub)?;
-    let manager_id = resolve_manager_id(&state, user_id).await?;
+    let manager_id = resolve_manager_id(&state, &claims).await?;
 
     // Termination is irreversible — block re-activation of terminated links.
     let current: Option<(String,)> = sqlx::query_as(

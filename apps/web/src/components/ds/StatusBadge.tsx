@@ -25,6 +25,10 @@ const STATUS_MAP: Record<string, { bg: string; color: string }> = {
   failed: { bg: "var(--st-alert-100)", color: "var(--st-alert-700)" },
   revoked: { bg: "var(--st-alert-100)", color: "var(--st-alert-700)" },
   lost: { bg: "var(--st-alert-100)", color: "var(--st-alert-700)" },
+  active_subscription: { bg: "var(--st-accent-100)", color: "var(--st-accent)" },
+  grace: { bg: "var(--st-alert-100)", color: "var(--st-alert-700)" },
+  pending_payment: { bg: "var(--st-neutral-200)", color: "var(--st-neutral-700)" },
+  expired: { bg: "var(--st-alert-100)", color: "var(--st-alert-700)" },
 };
 
 function normalise(s: string) {
