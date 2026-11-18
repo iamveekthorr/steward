@@ -49,6 +49,12 @@ struct Config {
     /// Format: free-form text, e.g. "Name: Victor\nAccount: 123..."
     #[serde(default)]
     lemfi_payment_details: String,
+    /// Max auth attempts per IP per window (default 30).
+    #[serde(default = "default_rate_limit_max")]
+    auth_rate_limit_max: usize,
+    /// Sliding window in seconds for auth rate limiting (default 900 = 15 min).
+    #[serde(default = "default_rate_limit_window")]
+    auth_rate_limit_window_secs: u64,
     // Cloudflare R2 object storage
     s3_api_url: String,
     r2_access_key_id: String,
@@ -65,6 +71,9 @@ fn default_cors_origin() -> String {
 fn default_admin_email() -> String {
     String::from("admin@steward.app")
 }
+
+fn default_rate_limit_max() -> usize { 30 }
+fn default_rate_limit_window() -> u64 { 900 }
 
 #[tokio::main]
 async fn main() {
@@ -138,10 +147,9 @@ async fn main() {
         &config.r2_public_url,
     );
 
-    // Rate limiter: 10 auth attempts per IP per 15 minutes.
     let auth_rate_limiter = Arc::new(authentication::rate_limit::RateLimiter::new(
-        10,
-        Duration::from_secs(15 * 60),
+        config.auth_rate_limit_max,
+        Duration::from_secs(config.auth_rate_limit_window_secs),
     ));
 
     // Generate a dummy Argon2id hash once at startup. The login handler always

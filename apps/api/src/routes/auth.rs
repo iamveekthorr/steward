@@ -162,9 +162,9 @@ async fn login(
     headers: HeaderMap,
     ValidatedJson(body): ValidatedJson<LoginRequest>,
 ) -> Result<(HeaderMap, ApiResponse<AuthResponse>), ApiError> {
-    let ip = caller_ip(&headers, Some(addr));
-
-    if let Err(retry_after) = state.auth_rate_limiter.check(&ip) {
+    // Key on email so the limit is per-account, not per-IP.  An IP-keyed limiter
+    // breaks when all users share one IP (e.g. a Cloudflare Worker proxy).
+    if let Err(retry_after) = state.auth_rate_limiter.check(&body.email.to_lowercase()) {
         return Err(ApiError::TooManyRequests(
             "Too many login attempts. Please try again later.".to_string(),
             Some(retry_after.as_secs()),
@@ -355,13 +355,10 @@ async fn refresh(
 }
 
 async fn resend_verification(
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
-    headers: HeaderMap,
     ValidatedJson(body): ValidatedJson<ResendVerificationRequest>,
 ) -> Result<ApiResponse<ResendVerificationResponse>, ApiError> {
-    let ip = caller_ip(&headers, Some(addr));
-    if let Err(retry_after) = state.auth_rate_limiter.check(&ip) {
+    if let Err(retry_after) = state.auth_rate_limiter.check(&body.email.to_lowercase()) {
         return Err(ApiError::TooManyRequests(
             "Too many requests. Please try again later.".to_string(),
             Some(retry_after.as_secs()),
@@ -395,13 +392,10 @@ async fn resend_verification(
 }
 
 async fn forgot_password(
-    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
-    headers: HeaderMap,
     ValidatedJson(body): ValidatedJson<ForgotPasswordRequest>,
 ) -> Result<ApiResponse<ForgotPasswordResponse>, ApiError> {
-    let ip = caller_ip(&headers, Some(addr));
-    if let Err(retry_after) = state.auth_rate_limiter.check(&ip) {
+    if let Err(retry_after) = state.auth_rate_limiter.check(&body.email.to_lowercase()) {
         return Err(ApiError::TooManyRequests(
             "Too many requests. Please try again later.".to_string(),
             Some(retry_after.as_secs()),
